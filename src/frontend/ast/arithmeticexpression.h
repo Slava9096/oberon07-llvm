@@ -27,7 +27,9 @@
     BINARYOP(ArithmeticExpressionMinus, ArithmeticExpression<T>, ArithmeticExpression<T>, T, - )
     template<typename T>
     BINARYOP(ArithmeticExpressionMult, ArithmeticExpression<T>, ArithmeticExpression<T>, T, * )
-    BINARYOP(ArithmeticExpressionDiv, ArithmeticExpression<double>, ArithmeticExpression<double>, double, / )
+             // WARN: should be double but for now T
+    template<typename T>
+    BINARYOP(ArithmeticExpressionDiv, ArithmeticExpression<T>, ArithmeticExpression<T>, T, / )
     template<typename T>
     BINARYOP(ArithmeticExpressionDivInt, ArithmeticExpression<T>, ArithmeticExpression<T>, T, / )
     template<typename T>

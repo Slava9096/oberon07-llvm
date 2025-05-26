@@ -8,12 +8,12 @@
     template<typename T>
     BINARYOP(RelationalExpressionNEQ, RelationalExpression, ArithmeticExpression<T>, bool, != )
     template<typename T>
-    BINARYOP(RelationalExpressionLess, RelationalExpression, ArithmeticExpression<T>, bool, < )
+    BINARYOP(RelationalExpressionLT, RelationalExpression, ArithmeticExpression<T>, bool, < )
     template<typename T>
-    BINARYOP(RelationalExpressionGreater, RelationalExpression, ArithmeticExpression<T>, bool, > )
+    BINARYOP(RelationalExpressionGT, RelationalExpression, ArithmeticExpression<T>, bool, > )
     template<typename T>
     BINARYOP(RelationalExpressionLEQ, RelationalExpression, ArithmeticExpression<T>, bool, <= )
     template<typename T>
-    BINARYOP(RelationalExpressionGRQ, RelationalExpression, ArithmeticExpression<T>, bool, >= )
+    BINARYOP(RelationalExpressionGEQ, RelationalExpression, ArithmeticExpression<T>, bool, >= )
 
 #endif

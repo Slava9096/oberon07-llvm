@@ -1,323 +1,251 @@
-%{
-/* definitions */
-#include <iostream>
-#include <string>
+ // Genereate C++ code
+%skeleton "lalr1.cc"
 
-%}
+%code requires {
 
-%token TOK_EOF TOK_ERROR
-%token TOK_FALSE TOK_TRUE TOK_NIL
-%token TOK_IF TOK_ELSE TOK_ELSEIF TOK_WHILE TOK_REPEAT TOK_FOR TOK_DO TOK_CASE TOK_OF TOK_BEGIN TOK_END TOK_RETURN TOK_IMPORT TOK_UNTIL TOK_THEN TOK_TO TOK_BY TOK_IN TOK_IS TOK_MODULE TOK_VAR TOK_CONST TOK_PROCEDURE TOK_TYPE 
-%token TOK_ASSIGN TOK_EQ TOK_NEQ TOK_LEQ TOK_LESS TOK_GRQ TOK_GREATER TOK_PLUS TOK_MINUS TOK_MULT TOK_DIV TOK_DIV_INT TOK_DIV_MOD TOK_NOT TOK_OR TOK_AND TOK_AMPERSAND TOK_DOT TOK_COMMA TOK_COLON TOK_SEMICOLON TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT TOK_BRACES_LEFT TOK_BRACES_RIGHT TOK_BRACKETS_LEFT TOK_BRACKETS_RIGHT TOK_DEREF TOK_BAR TOK_RANGE
-%token TOK_BOOLEAN TOK_INTEGER TOK_CHAR TOK_REAL TOK_POINTER TOK_RECORD TOK_ARRAY TOK_OF TOK_STRING TOK_REAL TOK_NUMBER TOK_IDENTIFIER TOK_STRING_HEX TOK_HEXADECIMAL
+    #include <vector>
 
-%language "c++"
-%defines
-%define api.value.type union
-%union {
-    int token;
-    std::string* str_val;
+    #include "base.h"
+    #include "arithmeticexpression.h"
+    #include "booleanexpression.h"
+    #include "lvalue.h"
+    #include "relationalexpression.h"
+    #include "statement.h"
+
+    class FooLexer;
 }
-/* rules */
+
+%code {
+    #include "foolexer.h"
+    int yylex(yy::parser::semantic_type* yylval, FooLexer* lexer)
+    {
+        return lexer->yylex(yylval);
+    }
+    #define DEBUG_PARSER(X) std::cerr << X; std::cerr.flush();
+}
+
+// %token TOK_EOF
+%token TOK_SEMICOLON
+%token TOK_READ TOK_PRINT
+%token TOK_IF TOK_BEGIN TOK_ELSE TOK_THEN TOK_END TOK_WHILE TOK_TRUE TOK_FALSE TOK_DO
+%token TOK_GEQ TOK_LEQ TOK_GT TOK_LT TOK_EQ TOK_NEQ TOK_OR TOK_AMPERSAND TOK_NOT
+%token TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT
+%token TOK_PLUS TOK_MINUS TOK_MULT TOK_DIV TOK_DIV_INT TOK_DIV_MOD TOK_ASSIGN
+
+
+%token <stringval> TOK_STRING
+%token <intval> TOK_NUMBER
+%token <stringval> TOK_IDENTIFIER
+
+%union
+{
+    std::string* stringval;
+    int intval;
+    double doubleval;
+
+    Statement* statement;
+    StatementBlock* block;
+    BooleanExpression* booleanexpression;
+    RelationalExpression* relationalexpression;
+    ArithmeticExpression<int>* arithmeticexpression;
+    LocationValue<int>* lvalue;
+}
+
+%parse-param { Statement** result }
+%parse-param { FooLexer* lexer }
+%lex-param { FooLexer* lexer }
+
+%defines
+
+%type <block> statements
+%type <statement> statement
+
+%type <booleanexpression> booleanexpression
+%type <booleanexpression> booleanexpressionO
+%type <booleanexpression> booleanexpressionA
+%type <booleanexpression> booleanexpressionX
+%type <relationalexpression> relationalexpression
+%type <arithmeticexpression> arithmeticexpression
+%type <arithmeticexpression> arithmeticexpressionA
+%type <arithmeticexpression> arithmeticexpressionM
+%type <arithmeticexpression> arithmeticexpressionX
+
+%type <lvalue> lvalue
+
 %%
 
-number
-    :
-;
-string
-    :
-;
-integer
-    :
-;
-real
-    :
-;
-scale_factor
-    :
-;
-
-programm
-    : module TOK_EOF
-;
-module
-    : TOK_MODULE ident TOK_SEMICOLON declaration_sequence TOK_END TOK_DOT
-    | TOK_MODULE ident TOK_SEMICOLON imports declaration_sequence TOK_END TOK_DOT
-    | TOK_MODULE ident TOK_SEMICOLON declaration_sequence TOK_BEGIN statements TOK_END TOK_DOT
-    | TOK_MODULE ident TOK_SEMICOLON imports declaration_sequence TOK_BEGIN statements TOK_END TOK_DOT
-;
-imports
-    : TOK_IMPORT import_list TOK_SEMICOLON
-;
-import_list
-    : import
-    | import_list TOK_COMMA import
-;
-import
-    : ident
-    | ident TOK_ASSIGN ident
-;
-ident
-    : TOK_IDENTIFIER
-;
-identdef
-    : ident
-    | ident TOK_MULT
-;
-qualident
-    : ident TOK_DOT ident
-    | ident
-;
-ident_list
-    : ident
-    | ident_list TOK_COMMA ident
-;
-identdef_list
-    : identdef
-    | identdef_list TOK_COMMA identdef
-;
-expression
-    : simple_expression
-    | simple_expression relation simple_expression
-;
-relation
-    : TOK_EQ
-    | TOK_NEQ
-    | TOK_LESS
-    | TOK_LEQ
-    | TOK_GREATER
-    | TOK_GRQ
-    | TOK_IN
-    | TOK_IS
-;
-simple_expression
-    : term
-    | TOK_PLUS term
-    | TOK_MINUS term
-    | TOK_PLUS term add_operators
-    | TOK_MINUS term add_operators
-;
-add_operators
-    : add_operator term
-    | add_operators add_operator term
-;
-add_operator
-    : TOK_PLUS
-    | TOK_MINUS
-    | TOK_OR
-;
-term
-    : factor mul_operators
-;
-mul_operators
-    : TOK_MULT
-    | TOK_DIV
-    | TOK_DIV_INT
-    | TOK_DIV_MOD
-    | TOK_AMPERSAND
-;
-// TODO:
-factor
-    : number
-    | string
-    | TOK_NIL
-    | TOK_TRUE
-    | TOK_FALSE
-    | set
-    | designator
-    | designator actual_parameters
-    | TOK_PARENTHESES_LEFT qualident TOK_PARENTHESES_RIGHT
-    | TOK_NOT factor
-;
-actual_parameters
-    : TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT
-    | TOK_PARENTHESES_LEFT exp_list TOK_PARENTHESES_RIGHT
-set
-    : TOK_BRACES_LEFT TOK_BRACES_RIGHT
-    | TOK_BRACES_LEFT elements TOK_BRACES_RIGHT
-;
-elements
-    : element
-    | elements TOK_COMMA element
-;
-element
-    : expression
-    | expression TOK_RANGE expression
-;
-declaration_sequence
-    : %empty
-    | const_section
-    | const_section procedure_section
-    | const_section type_section
-    | const_section type_section procedure_section
-    | const_section type_section var_section
-    | const_section type_section var_section procedure_section
-    | const_section var_section
-    | const_section var_section procedure_section
-    | procedure_section
-    | type_section
-    | type_section procedure_section
-    | type_section var_section
-    | type_section var_section procedure_section
-    | var_section
-    | var_section procedure_section
-;
-const_section
-    : TOK_CONST define_consts TOK_SEMICOLON
-;
-define_consts
-    : const_declaration
-    | define_consts const_declaration
-;
-const_declaration
-    : identdef TOK_EQ const_expression
-;
-const_expression
-    : expression
-;
-type_section
-    : type_declaration
-    | type_section type_declaration
-;
-type_declaration
-    : identdef TOK_EQ type
-;
-var_section
-    : var_declaration
-    | var_section var_declaration
-;
-var_declaration
-    : identdef_list TOK_COLON type
-;
-procedure_section
-    : procedure_declaration
-    | procedure_section procedure_declaration
-;
-procedure_declaration
-    : procedure_heading TOK_SEMICOLON procedure_body ident
-;
-procedure_heading
-    : TOK_PROCEDURE identdef formal_parameters
-    | TOK_PROCEDURE identdef
-;
-procedure_body
-    : declaration_sequence TOK_END
-    | declaration_sequence TOK_BEGIN statements TOK_END
-    | declaration_sequence TOK_BEGIN statements TOK_RETURN expression TOK_END
-    | declaration_sequence TOK_RETURN expression TOK_END
-;
-formal_parameters
-    : TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT
-    | TOK_PARENTHESES_LEFT fp_sections TOK_PARENTHESES_RIGHT
-    | TOK_PARENTHESES_LEFT fp_sections TOK_PARENTHESES_RIGHT TOK_COLON qualident
-    | TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT TOK_COLON qualident
-;
-fp_sections
-    : fp_section
-    | fp_sections fp_section
-;
-fp_section
-    : ident TOK_COLON formal_type
-    | TOK_VAR ident TOK_COLON formal_type
-    | TOK_VAR ident_list TOK_COLON formal_type
-;
-// WARN: if types doesnt work problem could be here
-type
-    : qualident
-    | TOK_ARRAY
-    | TOK_RECORD
-    | TOK_POINTER
-    | TOK_PROCEDURE
-;
-formal_type
-    : qualident
-    | TOK_ARRAY TOK_OF formal_type
+program
+    :statements YYEOF
+    {
+        *result = $statements;
+    }
 ;
 statements
     : %empty
-    | statements TOK_SEMICOLON statement
+    {
+        std::vector<Statement*> block;
+        $$ = new StatementBlock(block);
+    }
+    | statements[s] statement
+    {
+        $s->statements.push_back($statement);
+        $$ = $s;
+    }
 ;
 statement
-    : assignment
-    | procedure_Call
-    | if_statement
-    | case_statement
-    | while_statement
-    | repeat_statement
-    | for_statement
+    : lvalue TOK_ASSIGN arithmeticexpression TOK_SEMICOLON
+    {
+        $$ = new StatementAssign($lvalue, $arithmeticexpression);
+    }
+    | TOK_IF booleanexpression TOK_THEN statement[t] TOK_END
+    {
+        $$ = new StatementIfElseIfElse({$booleanexpression}, {$t});
+    }
+    | TOK_IF booleanexpression TOK_THEN statement[t] TOK_ELSE statement[e] TOK_END
+    {
+        $$ = new StatementIfElseIfElse({$booleanexpression}, {$t}, $e);
+    }
+    | TOK_WHILE booleanexpression TOK_DO statement[s]
+    {
+        $$ = new StatementWhile($booleanexpression, $s);
+    }
+    | TOK_READ lvalue TOK_SEMICOLON
+    {
+        $$ = new StatementReadInt($lvalue);
+    }
+    | TOK_PRINT arithmeticexpression TOK_SEMICOLON
+    {
+        $$ = new StatementWriteInt($arithmeticexpression);
+    }
+    | TOK_PRINT TOK_STRING TOK_SEMICOLON
+    {
+        $$ = new StatementWrite(*$TOK_STRING);
+        delete $TOK_STRING;
+    }
 ;
-assignment
-    : designator TOK_ASSIGN expression
+booleanexpression
+    : booleanexpressionO
 ;
-designator
-    : qualident selectors
+booleanexpressionO
+    : booleanexpressionO[l] TOK_OR booleanexpressionA[r]
+    {
+        $$ = new BooleanExpressionOr($l, $r);
+    }
+    | booleanexpressionA
 ;
-selectors
-    : selector
-    | selectors selector
+booleanexpressionA
+    : booleanexpressionA[l] TOK_AMPERSAND booleanexpressionX[r]
+    {
+        $$ = new BooleanExpressionAnd($l, $r);
+    }
+    | booleanexpressionX
 ;
-selector
-    : TOK_DOT ident
-    | TOK_BRACKETS_LEFT exp_list TOK_BRACKETS_RIGHT
-    | TOK_DEREF
-    | TOK_PARENTHESES_LEFT qualident TOK_PARENTHESES_RIGHT
+booleanexpressionX
+    : TOK_TRUE
+    {
+        $$ = new BooleanExpressionTrue();
+    }
+    | TOK_FALSE
+    {
+        $$ = new BooleanExpressionFalse();
+    }
+    | TOK_PARENTHESES_LEFT booleanexpression[b] TOK_PARENTHESES_RIGHT
+    {
+        $$ = $b;
+    }
+    | TOK_NOT booleanexpressionX[b]
+    {
+        $$ = new BooleanExpressionNot($b);
+    }
+    | relationalexpression
+    {
+        $$ = $relationalexpression;
+    }
 ;
-exp_list
-    : expression
-    | exp_list TOX_COMMA expression
+relationalexpression
+    : arithmeticexpression[l] TOK_GEQ arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionGEQ($l, $r);
+    }
+    | arithmeticexpression[l] TOK_LEQ arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionLEQ($l, $r);
+    }
+    | arithmeticexpression[l] TOK_LT arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionLT($l, $r);
+    }
+    | arithmeticexpression[l] TOK_GT arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionGT($l, $r);
+    }
+    | arithmeticexpression[l] TOK_EQ arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionEQ($l, $r);
+    }
+    | arithmeticexpression[l] TOK_NEQ arithmeticexpression[r]
+    {
+        $$ = new RelationalExpressionNEQ($l, $r);
+    }
 ;
-procedure_call
-    : designator
-    | designator actual_parameters
+arithmeticexpression
+    : arithmeticexpressionA
 ;
-if_statement
-    : TOK_IF expression TOK_THEN statements TOK_END
-    | TOK_IF expression TOK_THEN statements TOK_ELSE statements TOK_END
-    | TOK_IF expression TOK_THEN statements elseif_blocks TOK_END
-;
-elseif_blocks
-    : TOK_ELSEIF expression TOK_THEN statements
-    | elseif_blocks TOK_ELSEIF expression TOK_THEN statements
-;
-case_statement
-    : TOK_CASE expression TOK_OF cases TOK_END
-;
-cases
-    : case
-    | cases TOK_BAR case
-;
-case
-    : %empty
-    | case_label_list TOK_COLON statements
-;
-case_label_list
-    : label_range
-    | case_label_list TOK_COMMA label_range
-;
-label_range
-    : label
-    | label TOK_RANGE label
-;
-// TODO:
-label
-    : integer
-    | string
-    | qualident
-;
-while_statement
-    : TOK_WHILE expression TOK_DO statements TOK_END
-    | TOK_WHILE expression TOK_DO statements while_elseif_blocks TOK_END
-;
-while_elseif_blocks
-    : TOK_ELSEIF expression TOK_DO statements
-    | while_elseif_blocks TOK_ELSEIF expression TOK_DO statements
-;
-repeat_statement
-    : TOK_REPEAT statements TOK_UNTIL expression
-;
-for_statement
-    : TOK_FOR ident TOK_ASSIGN expression TOK_TO expression TOK_DO statements TOK_END
-    | TOK_FOR ident TOK_ASSIGN expression TOK_TO expression TOK_BY const_expression TOK_DO statements TOK_END
+arithmeticexpressionA
+    : arithmeticexpressionA[l] TOK_PLUS arithmeticexpressionM[r]
+    {
+        $$ = new ArithmeticExpressionPlus<int>($l, $r);
+    }
+    | arithmeticexpressionA[l] TOK_MINUS arithmeticexpressionM[r]
+    {
+        $$ = new ArithmeticExpressionMinus<int>($l, $r);
+    }
+    | arithmeticexpressionM
 ;
 
+arithmeticexpressionM
+    : arithmeticexpressionM[l] TOK_MULT arithmeticexpressionX[r]
+    {
+        $$ = new ArithmeticExpressionMult<int>($l, $r);
+    }
+    | arithmeticexpressionM[l] TOK_DIV arithmeticexpressionX[r]
+    {
+        $$ = new ArithmeticExpressionDiv<int>($l, $r);
+    }
+    | arithmeticexpressionM[l] TOK_DIV_INT arithmeticexpressionX[r]
+    {
+        $$ = new ArithmeticExpressionDivInt<int>($l, $r);
+    }
+    | arithmeticexpressionM[l] TOK_DIV_MOD arithmeticexpressionX[r]
+    {
+        $$ = new ArithmeticExpressionDivMod<int>($l, $r);
+    }
+    | arithmeticexpressionX
+;
+arithmeticexpressionX
+    : TOK_NUMBER
+    {
+        $$ = new ArithmeticExpressionConst<int>($TOK_NUMBER);
+    }
+    | lvalue
+    {
+        $$ = $lvalue;
+    }
+    | TOK_PARENTHESES_LEFT arithmeticexpression[a] TOK_PARENTHESES_RIGHT
+    {
+        $$ = $[a];
+    }
+;
+lvalue
+    : TOK_IDENTIFIER
+    {
+        $$ = new LocationValueVariable<int>(*$TOK_IDENTIFIER);
+        delete $TOK_IDENTIFIER;
+    }
+;
 %%
+
+void yy::parser::error(const std::string& msg)
+{
+    std::cerr << msg;
+}

@@ -1,3 +1,12 @@
 build
 flex/lex.yy.c
 flex/lexer.out
+Makefile
+src/frontend/*.o
+src/frontend/*.output
+src/frontend/stack.hh
+src/frontend/ast/example.txt
+src/frontend/ast/Makefile
+src/frontend/ast/test
+src/frontend/ast/main.cpp
+src/frontend/ast/parser.*
