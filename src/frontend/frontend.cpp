@@ -1,25 +1,27 @@
-#include <iostream>
 #include <fstream>
-#include <FlexLexer.h>
 
-#include "flex/tokens.h"
-std::string* pStr = nullptr;
+#include "foolexer.h"
 
-int main(int argc, char* argv[]){
+#include "ast/base.h"
+#include "parser.hpp"
 
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
-        return 1;
+int main(int argc, char** argv){
+
+    if(argc < 2) return 1;
+    std::ifstream src(argv[1]);
+
+    Statement* program = nullptr;
+    FooLexer* lexer = new FooLexer(src, std::cerr);
+    yy::parser* parser = new yy::parser(&program, lexer);
+    if(parser->parse() == 0)
+    {
+        Context* context = new Context();
+        program->Execute(context);
+        delete context;
     }
+    delete program;
 
-    std::ifstream program(argv[1]);
-    if (!program) {
-        std::cerr << "Could not open file: " << argv[1] << std::endl;
-        return 1;
-    }
-
-    FlexLexer* lexer = new yyFlexLexer(program, std::cerr);
-
+    delete parser;
     delete lexer;
     return 0;
 }

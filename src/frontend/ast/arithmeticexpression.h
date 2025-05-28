@@ -15,7 +15,7 @@
             ~ArithmeticExpressionConst()
             {
             }
-            int Evaluate(Context* context) override
+            T Evaluate(Context* context) override
             {
                 return value;
             };

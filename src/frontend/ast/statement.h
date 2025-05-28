@@ -4,6 +4,8 @@
 
 #include <cstddef>
 #include <iostream>
+#include <cmath>
+#include <string>
 #include <vector>
 
 #include "base.h"
@@ -43,6 +45,25 @@ class StatementWrite: public Statement
             std::cout << text;
         }
 };
+class StatementRead: public Statement
+{
+    LocationValue<std::string>* lvalue;
+    public:
+        StatementRead(LocationValue<std::string>* lvalue)
+        {
+            this->lvalue = lvalue;
+        }
+        ~StatementRead()
+        {
+            delete lvalue;
+        }
+        void Execute(Context* context) override
+        {
+            std::string tmp;
+            std::cin >> tmp;
+            lvalue->Set(tmp, context);
+        }
+};
 
 template<typename T>
 class StatementAssign: public Statement
@@ -62,8 +83,29 @@ class StatementAssign: public Statement
         }
         void Execute(Context* context) override
         {
-            int tmp = expression->Evaluate(context);
+            T tmp = expression->Evaluate(context);
             lvalue->Set(tmp, context);
+        }
+};
+
+class StatementAssignStr: public Statement
+{
+    LocationValue<std::string>* lvalue;
+    std::string* text;
+    public:
+        StatementAssignStr(LocationValue<std::string>* lvalue, std::string* text)
+        {
+            this->lvalue = lvalue;
+            this->text = text;
+        }
+        ~StatementAssignStr()
+        {
+            delete lvalue;
+            delete text;
+        }
+        void Execute(Context* context) override
+        {
+            lvalue->Set(*text, context);
         }
 };
 
@@ -104,6 +146,54 @@ class StatementReadInt: public Statement
             std::cin >> tmp;
             lvalue->Set(tmp, context);
         }
+};
+
+class StatementWriteDouble: public Statement
+{
+    ArithmeticExpression<double>* expression;
+    public:
+        StatementWriteDouble(ArithmeticExpression<double>* expression)
+        {
+            this->expression = expression;
+        }
+        ~StatementWriteDouble()
+        {
+            delete expression;
+        }
+        void Execute(Context* context) override
+        {
+            std::cout << ( expression->Evaluate(context) );
+        }
+};
+
+class StatementReadDouble: public Statement
+{
+    LocationValue<double>* lvalue;
+    public:
+        StatementReadDouble(LocationValue<double>* lvalue)
+        {
+            this->lvalue= lvalue;
+        }
+        ~StatementReadDouble()
+        {
+            delete lvalue;
+        }
+        void Execute(Context* context) override
+        {
+            std::string tmp;
+            std::cin >> tmp;
+            lvalue->Set(parseDouble(tmp), context);
+        }
+    private:
+    double parseDouble(const std::string& number){
+        size_t ePos = number.find('E');
+
+        if (ePos == std::string::npos){
+            return std::stod(number);
+        }
+
+        return std::stod(number.substr(0,ePos)) * std::pow(10, std::stoi(number.substr(ePos + 1)));
+    }
 };
 
 class StatementWhile: public Statement
