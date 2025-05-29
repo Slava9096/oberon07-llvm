@@ -31,9 +31,9 @@ class StatementBlock : public Statement
 
 class StatementWrite: public Statement
 {
-    std::string text;
+    Types text;
     public:
-        StatementWrite(std::string text)
+        StatementWrite(Types text)
         {
             this->text = text;
         }
@@ -42,14 +42,36 @@ class StatementWrite: public Statement
         }
         void Execute(Context* context) override
         {
-            std::cout << text;
+            std::visit([](auto&& value) {
+                std::cout << value;
+            }, text);
+        }
+};
+class StatementWriteVar: public Statement
+{
+    ArithmeticExpression* expression;
+    public:
+        StatementWriteVar(ArithmeticExpression* expression)
+        {
+            this->expression = expression;
+        }
+        ~StatementWriteVar()
+        {
+        }
+        void Execute(Context* context) override
+        {
+        Types value = expression->Evaluate(context);
+
+        std::visit([](auto&& arg) {
+            std::cout << arg;
+        }, value);
         }
 };
 class StatementRead: public Statement
 {
-    LocationValue<std::string>* lvalue;
+    LocationValue* lvalue;
     public:
-        StatementRead(LocationValue<std::string>* lvalue)
+        StatementRead(LocationValue* lvalue)
         {
             this->lvalue = lvalue;
         }
@@ -65,13 +87,12 @@ class StatementRead: public Statement
         }
 };
 
-template<typename T>
 class StatementAssign: public Statement
 {
-    LocationValue<T>* lvalue;
-    ArithmeticExpression<T>* expression;
+    LocationValue* lvalue;
+    ArithmeticExpression* expression;
     public:
-        StatementAssign(LocationValue<T>* lvalue, ArithmeticExpression<T>* expression)
+        StatementAssign(LocationValue* lvalue, ArithmeticExpression* expression)
         {
             this->lvalue = lvalue;
             this->expression = expression;
@@ -83,17 +104,17 @@ class StatementAssign: public Statement
         }
         void Execute(Context* context) override
         {
-            T tmp = expression->Evaluate(context);
+            Types tmp = expression->Evaluate(context);
             lvalue->Set(tmp, context);
         }
 };
 
 class StatementAssignStr: public Statement
 {
-    LocationValue<std::string>* lvalue;
+    LocationValue* lvalue;
     std::string* text;
     public:
-        StatementAssignStr(LocationValue<std::string>* lvalue, std::string* text)
+        StatementAssignStr(LocationValue* lvalue, std::string* text)
         {
             this->lvalue = lvalue;
             this->text = text;
@@ -109,30 +130,11 @@ class StatementAssignStr: public Statement
         }
 };
 
-
-class StatementWriteInt: public Statement
-{
-    ArithmeticExpression<int>* expression;
-    public:
-        StatementWriteInt(ArithmeticExpression<int>* expression)
-        {
-            this->expression = expression;
-        }
-        ~StatementWriteInt()
-        {
-            delete expression;
-        }
-        void Execute(Context* context) override
-        {
-            std::cout << ( expression->Evaluate(context) );
-        }
-};
-
 class StatementReadInt: public Statement
 {
-    LocationValue<int>* lvalue;
+    LocationValue* lvalue;
     public:
-        StatementReadInt(LocationValue<int>* lvalue)
+        StatementReadInt(LocationValue* lvalue)
         {
             this->lvalue= lvalue;
         }
@@ -148,29 +150,11 @@ class StatementReadInt: public Statement
         }
 };
 
-class StatementWriteDouble: public Statement
-{
-    ArithmeticExpression<double>* expression;
-    public:
-        StatementWriteDouble(ArithmeticExpression<double>* expression)
-        {
-            this->expression = expression;
-        }
-        ~StatementWriteDouble()
-        {
-            delete expression;
-        }
-        void Execute(Context* context) override
-        {
-            std::cout << ( expression->Evaluate(context) );
-        }
-};
-
 class StatementReadDouble: public Statement
 {
-    LocationValue<double>* lvalue;
+    LocationValue* lvalue;
     public:
-        StatementReadDouble(LocationValue<double>* lvalue)
+        StatementReadDouble(LocationValue* lvalue)
         {
             this->lvalue= lvalue;
         }
@@ -266,21 +250,21 @@ class StatementFor: public Statement
 {
     BooleanExpression* condition;
     Statement* statement;
-    ArithmeticExpression<int>* step;
-    LocationValue<int>* iterator;
+    ArithmeticExpression* step;
+    LocationValue* iterator;
     public:
-        StatementFor(LocationValue<int>* iterator, BooleanExpression* condition, Statement* statement,ArithmeticExpression<int>* step)
+        StatementFor(LocationValue* iterator, BooleanExpression* condition, Statement* statement,ArithmeticExpression* step)
         {
             this->condition = condition;
             this->statement = statement;
             this->step = step;
             this->iterator = iterator;
         }
-        StatementFor(LocationValue<int>* iterator, BooleanExpression* condition, Statement* statement)
+        StatementFor(LocationValue* iterator, BooleanExpression* condition, Statement* statement)
         {
             this->condition = condition;
             this->statement = statement;
-            this->step = new ArithmeticExpressionPlus<int>(iterator, new ArithmeticExpressionConst<int>(1));
+            this->step = new ArithmeticExpressionPlus(iterator, new ArithmeticExpressionConst(1));
             this->iterator = iterator;
         }
     ~StatementFor()
@@ -294,11 +278,27 @@ class StatementFor: public Statement
         {
             while (condition->Evaluate(context)) {
                 statement->Execute(context);
-                int newIterator = step->Evaluate(context);
+                Types newIterator = step->Evaluate(context);
                 iterator->Set(newIterator, context);
             }
         }
 };
-
+template<typename T>
+class DeclarationStatement : public Statement
+{
+    public:
+        std::string name;
+        DeclarationStatement(const std::string& name)
+        {
+            this->name = name;
+        }
+        ~DeclarationStatement()
+        {
+        }
+        void Execute(Context* context)
+        {
+            context->values.emplace(std::make_pair(name, T{}));
+        }
+};
 
 #endif

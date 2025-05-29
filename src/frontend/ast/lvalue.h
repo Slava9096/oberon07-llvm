@@ -4,25 +4,24 @@
 
 #include "base.h"
 
-template<typename T>
-class LocationValueVariable : public LocationValue<T>
+class LocationValueVariable : public LocationValue
 {
     std::string name;
     public:
-        LocationValueVariable(const std::string& name) : LocationValue<T>()
+        LocationValueVariable(const std::string& name) : LocationValue()
     {
         this->name = name;
     }
     ~LocationValueVariable()
     {
     }
-    void Set(T value, Context* context) override
+    void Set(Types value, Context* context) override
     {
         context->values[name] = value;
     };
-    T Evaluate(Context* context) override
+    Types Evaluate(Context* context) override
     {
-        return std::get<T>(context->values[name]);
+        return context->values[name];
     };
 };
 

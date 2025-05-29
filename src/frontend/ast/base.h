@@ -5,10 +5,13 @@
 #include <string>
 #include <variant>
 
+using Types = std::variant<int, double, bool, std::string>;
+using TypesNumeric = std::variant<int, double>;
+
 class Context
 {
     public:
-        std::map<std::string, std::variant<int, double, bool, std::string>> values;
+        std::map<std::string, Types> values;
         Context() {}
         ~Context() {}
 };
@@ -36,22 +39,20 @@ class RelationalExpression : public BooleanExpression
         ~RelationalExpression();
 };
 
-template <typename T>
 class ArithmeticExpression
 {
     public:
         ArithmeticExpression(){};
         virtual ~ArithmeticExpression(){};
-        virtual T Evaluate(Context* context) = 0;
+        virtual Types Evaluate(Context* context) = 0;
 };
 
-template <typename T>
-class LocationValue : public ArithmeticExpression<T>
+class LocationValue : public ArithmeticExpression
 {
     public:
         LocationValue(){};
         virtual ~LocationValue(){};
-        virtual void Set(T value, Context* context) = 0;
+        virtual void Set(Types value, Context* context) = 0;
 };
 
 #define BINARYOP(NAME, BASETYPE, CONTENTTYPE, RETURNTYPE, OPERATION) \
@@ -68,7 +69,7 @@ class LocationValue : public ArithmeticExpression<T>
                 delete r; \
             } \
             RETURNTYPE Evaluate(Context* context) override{ \
-                return l->Evaluate(context) OPERATION r->Evaluate(context); \
+                return std::visit(OPERATION{}, l->Evaluate(context), r->Evaluate(context)); \
             } \
         };
 
@@ -84,7 +85,7 @@ class LocationValue : public ArithmeticExpression<T>
                 delete x; \
             }\
             RETURNTYPE Evaluate(Context* context) override{ \
-                return OPERATION ( x->Evaluate(context) ); \
+                return std::visit(OPERATION{}, x->Evaluate(context)); \
             } \
         };
 
