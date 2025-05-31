@@ -32,19 +32,19 @@
 %token TOK_PLUS TOK_MINUS TOK_MULT TOK_DIV TOK_DIV_INT TOK_DIV_MOD TOK_ASSIGN
 %token TOK_VAR TOK_CHAR TOK_INTEGER TOK_REAL
 
-%token TOK_READINT TOK_PRINT TOK_READSTR TOK_READDOUBLE
+%token TOK_READINT TOK_PRINT TOK_READSTR TOK_READFLOAT
 
 
 %token <stringval> TOK_STRING_VALUE
 %token <intval> TOK_NUMBER_VALUE
-%token <doubleval> TOK_REAL_VALUE
+%token <floatval> TOK_REAL_VALUE
 %token <stringval> TOK_IDENTIFIER
 
 %union
 {
     std::string* stringval;
     int intval;
-    double doubleval;
+    float floatval;
 
     Statement* statement;
     StatementBlock* block;
@@ -162,9 +162,9 @@ statementC
     {
         $$ = new StatementReadInt($lvalue);
     }
-    | TOK_READDOUBLE lvalue TOK_SEMICOLON
+    | TOK_READFLOAT lvalue TOK_SEMICOLON
     {
-        $$ = new StatementReadDouble($lvalue);
+        $$ = new StatementReadFloat($lvalue);
     }
     | TOK_READSTR lvalue TOK_SEMICOLON
     {
@@ -321,7 +321,7 @@ decl_lvalue_int
 decl_lvalue_real
     : TOK_VAR TOK_IDENTIFIER TOK_COLON TOK_REAL
     {
-        $$ = new DeclarationStatement<double>(*$TOK_IDENTIFIER);
+        $$ = new DeclarationStatement<float>(*$TOK_IDENTIFIER);
         delete $TOK_IDENTIFIER;
     }
 ;

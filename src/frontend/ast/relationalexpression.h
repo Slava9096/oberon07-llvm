@@ -6,7 +6,7 @@
 
     struct EQVisitor {
         bool operator()(int l, int r) const { return l == r; }
-        bool operator()(double l, double r) const { return l == r; }
+        bool operator()(float l, float r) const { return l == r; }
         bool operator()(bool l, bool r) const { return l == r; }
         bool operator()(const std::string& l, const std::string& r) const { return l == r; }
         template <typename T, typename U>
@@ -22,7 +22,7 @@
     };
     struct LTVisitor {
         bool operator()(int l, int r) const { return l < r; }
-        bool operator()(double l, double r) const { return l < r; }
+        bool operator()(float l, float r) const { return l < r; }
         bool operator()(const std::string& l, const std::string& r) const { return l < r; }
         template <typename T, typename U>
         bool operator()(T, U) const {
@@ -47,11 +47,64 @@
             return GTVisitor{}(l, r) || EQVisitor{}(l, r);
         }
     };
-    BINARYOP(RelationalExpressionEQ, RelationalExpression, ArithmeticExpression, bool, EQVisitor )
-    BINARYOP(RelationalExpressionNEQ, RelationalExpression, ArithmeticExpression, bool, NEQVisitor )
-    BINARYOP(RelationalExpressionLT, RelationalExpression, ArithmeticExpression, bool, LTVisitor )
-    BINARYOP(RelationalExpressionGT, RelationalExpression, ArithmeticExpression, bool, GTVisitor )
-    BINARYOP(RelationalExpressionLEQ, RelationalExpression, ArithmeticExpression, bool, LEQVisitor )
-    BINARYOP(RelationalExpressionGEQ, RelationalExpression, ArithmeticExpression, bool, GEQVisitor )
-
+BINARYOP(RelationalExpressionEQ, RelationalExpression, ArithmeticExpression, bool, EQVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpEQ(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpOEQ(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for equality comparison");
+             }
+         }())
+BINARYOP(RelationalExpressionNEQ, RelationalExpression, ArithmeticExpression, bool, NEQVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpNE(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpONE(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for inequality comparison");
+             }
+         }())
+BINARYOP(RelationalExpressionLT, RelationalExpression, ArithmeticExpression, bool, LTVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpSLT(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpOLT(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for less than comparison");
+             }
+         }())
+BINARYOP(RelationalExpressionGT, RelationalExpression, ArithmeticExpression, bool, GTVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpSGT(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpOGT(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for greater than comparison");
+             }
+         }())
+BINARYOP(RelationalExpressionLEQ, RelationalExpression, ArithmeticExpression, bool, LEQVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpSLE(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpOLE(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for less equal comparison");
+             }
+         }())
+BINARYOP(RelationalExpressionGEQ, RelationalExpression, ArithmeticExpression, bool, GEQVisitor,
+ [&]() -> llvm::Value* {
+             if (lhs->getType()->isIntegerTy(32)) {
+                 return builder.CreateICmpSGE(lhs, rhs);
+             } else if (lhs->getType()->isFloatTy()) {
+                 return builder.CreateFCmpOGE(lhs, rhs);
+             } else {
+                 throw std::runtime_error("Unsupported operand types for greater equal comparison");
+             }
+         }())
 #endif

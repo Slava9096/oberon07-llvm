@@ -5,8 +5,13 @@
 #include <string>
 #include <variant>
 
-using Types = std::variant<int, double, bool, std::string>;
-using TypesNumeric = std::variant<int, double>;
+#include "llvm/IR/Value.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+
+
+using Types = std::variant<int, float, bool, std::string>;
+enum class VarType { Int, Float, Bool, String };
 
 class Context
 {
@@ -22,6 +27,7 @@ class Statement
         Statement();
         virtual ~Statement();
         virtual void Execute(Context* context) = 0;
+        virtual llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) = 0;
 };
 
 class BooleanExpression
@@ -30,6 +36,7 @@ class BooleanExpression
         BooleanExpression();
         virtual ~BooleanExpression();
         virtual bool Evaluate(Context* context) = 0;
+        virtual llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) = 0;
 };
 
 class RelationalExpression : public BooleanExpression
@@ -45,6 +52,7 @@ class ArithmeticExpression
         ArithmeticExpression(){};
         virtual ~ArithmeticExpression(){};
         virtual Types Evaluate(Context* context) = 0;
+        virtual llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) = 0;
 };
 
 class LocationValue : public ArithmeticExpression
@@ -53,9 +61,10 @@ class LocationValue : public ArithmeticExpression
         LocationValue(){};
         virtual ~LocationValue(){};
         virtual void Set(Types value, Context* context) = 0;
+        virtual llvm::Value* getPointer(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) = 0;
 };
 
-#define BINARYOP(NAME, BASETYPE, CONTENTTYPE, RETURNTYPE, OPERATION) \
+#define BINARYOP(NAME, BASETYPE, CONTENTTYPE, RETURNTYPE, OPERATION, CODEGEN) \
     class NAME : public BASETYPE { \
             CONTENTTYPE* l; \
             CONTENTTYPE* r; \
@@ -71,10 +80,15 @@ class LocationValue : public ArithmeticExpression
             RETURNTYPE Evaluate(Context* context) override{ \
                 return std::visit(OPERATION{}, l->Evaluate(context), r->Evaluate(context)); \
             } \
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override { \
+                llvm::Value* lhs = l->codegen(context, builder); \
+                llvm::Value* rhs = r->codegen(context, builder); \
+                return CODEGEN; \
+            } \
         };
 
 
-#define UNARYOP(NAME, BASETYPE, CONTENTTYPE, RETURNTYPE, OPERATION) \
+#define UNARYOP(NAME, BASETYPE, CONTENTTYPE, RETURNTYPE, OPERATION, CODEGEN) \
     class NAME : public BASETYPE { \
             CONTENTTYPE* x; \
         public: \
@@ -86,6 +100,10 @@ class LocationValue : public ArithmeticExpression
             }\
             RETURNTYPE Evaluate(Context* context) override{ \
                 return std::visit(OPERATION{}, x->Evaluate(context)); \
+            } \
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override { \
+                llvm::Value* val = x->codegen(context, builder); \
+                return CODEGEN; \
             } \
         };
 

@@ -36,8 +36,8 @@
     }
     return result;
  }
- // Parse scientific notation and convert to double
- double parseDouble(const std::string& number){
+ // Parse scientific notation and convert to float
+ float parseFloat(const std::string& number){
      size_t ePos = number.find('E');
 
      if (ePos == std::string::npos){
@@ -100,7 +100,7 @@
  /* TEST: tmp token */
 "PRINT"                             { TOKEN(TOK_PRINT); }
 "READSTR"                           { TOKEN(TOK_READSTR); }
-"READDOUBLE"                        { TOKEN(TOK_READDOUBLE); }
+"READFLOAT"                        { TOKEN(TOK_READFLOAT); }
 "READINT"                           { TOKEN(TOK_READINT); }
 "+"                                 { TOKEN(TOK_PLUS); }
 "-"                                 { TOKEN(TOK_MINUS); }
@@ -140,8 +140,8 @@
                                       TOKEN(TOK_STRING_VALUE);
                                     }
  /* [0-9A-F]+X                          { yylval->stringval = new std::string(yytext, yyleng); TOKEN(TOK_STRING_HEX); } */
- /* Parse scientific notation and turn into double */
-[0-9]+\.[0-9]+(?:E[\+\-][0-9]+)?    { yylval->doubleval = parseDouble(std::string(yytext, yyleng)); TOKEN(TOK_REAL_VALUE); }
+ /* Parse scientific notation and turn into float */
+[0-9]+\.[0-9]+(?:E[\+\-][0-9]+)?    { yylval->floatval = parseFloat(std::string(yytext, yyleng)); TOKEN(TOK_REAL_VALUE); }
  /* [0-9A-F]+H                          { yylval->stringval = new std::string(yytext, yyleng); TOKEN(TOK_HEXADECIMAL); } */
 [0-9]+                              { yylval->intval = stoi(std::string(yytext, yyleng)); TOKEN(TOK_NUMBER_VALUE); }
 
