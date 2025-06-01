@@ -1,0 +1,13 @@
+MODULE TestWhileLoop;
+VAR i : INTEGER;
+VAR sum : INTEGER;
+BEGIN
+    i := 0;
+    sum := 0;
+    WHILE i < 5 DO
+        sum := sum + i;
+        i := i + 1;
+    END
+    PRINT sum;
+    PRINT "\n";
+END.

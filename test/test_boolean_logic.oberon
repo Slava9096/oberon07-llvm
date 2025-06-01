@@ -1,0 +1,9 @@
+MODULE TestBooleanLogic;
+BEGIN
+    IF (5 > 3) & (~ (10 < 5)) OR (7 = 7) THEN
+        PRINT 1;
+    ELSE
+        PRINT 0;
+    END
+    PRINT "\n";
+END.

@@ -1,0 +1,9 @@
+MODULE TestArithmetic;
+VAR a: INTEGER;
+BEGIN
+    a := (2 + 3 * 4 - 5) MOD 5;
+    PRINT a;
+    a := (2 + 3) * (4 - 5);
+    PRINT a;
+    PRINT "\n";
+END.

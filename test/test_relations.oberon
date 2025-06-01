@@ -1,0 +1,13 @@
+MODULE TestRelations;
+VAR a : INTEGER;
+VAR b : INTEGER;
+BEGIN
+    a := 7;
+    b := 3;
+    IF a > b & a <= 10 THEN
+        PRINT 1;
+    ELSE
+        PRINT 0;
+    END
+    PRINT "\n";
+END.

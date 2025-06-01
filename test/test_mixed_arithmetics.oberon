@@ -1,0 +1,9 @@
+MODULE TestMixedArithmetic;
+VAR x: REAL;
+VAR i: INTEGER;
+BEGIN
+    i := 3;
+    x := i + 2.5;
+    PRINT x;
+    PRINT "\n";
+END.

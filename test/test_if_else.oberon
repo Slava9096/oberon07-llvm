@@ -1,0 +1,11 @@
+MODULE TestIfElse;
+VAR a : INTEGER;
+BEGIN
+    a := 5;
+    IF a > 3 THEN
+        PRINT 1;
+    ELSE
+        PRINT 0;
+    END
+    PRINT "\n";
+END.

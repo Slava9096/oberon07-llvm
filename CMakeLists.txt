@@ -4,6 +4,10 @@ project(oberon07_llvm_esp32)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Find required packages
+find_package(BISON REQUIRED)
+find_package(FLEX REQUIRED)
+
 # Find LLVM
 set(LLVM_DIR "/usr/lib/cmake/llvm")
 # set(LLVM_DIR "/opt/llvm-project/build/lib/cmake/llvm")
@@ -16,6 +20,27 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
+# Add include directories for generated files
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Generate Flex and Bison files
+BISON_TARGET(parser
+    src/frontend/parser.y
+    ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp
+    DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/parser.hpp
+)
+
+FLEX_TARGET(lexer
+    src/frontend/flex.l
+    ${CMAKE_CURRENT_BINARY_DIR}/lexer.cpp
+)
+
+ADD_FLEX_BISON_DEPENDENCY(lexer parser)
+
 # Add source files
 set(SOURCES
     src/main.cpp
@@ -23,9 +48,9 @@ set(SOURCES
     src/middleend/middleend.cpp
     src/backend/backend.cpp
     src/backend/linker.cpp
-    src/frontend/lexer.cpp
-    src/frontend/parser.cpp
     src/frontend/ast/base.cpp
+    ${BISON_parser_OUTPUTS}
+    ${FLEX_lexer_OUTPUTS}
 )
 
 # Add header files
@@ -45,6 +70,13 @@ set(HEADERS
 # Create executable
 add_executable(oberon07_llvm_esp32 ${SOURCES} ${HEADERS})
 
+# Set include directories for the target
+target_include_directories(oberon07_llvm_esp32 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 # Link against LLVM
 target_link_libraries(oberon07_llvm_esp32 PRIVATE
     LLVM
@@ -62,3 +94,6 @@ target_compile_definitions(oberon07_llvm_esp32 PRIVATE
 set_target_properties(oberon07_llvm_esp32 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
+# Enable testing and include test subdirectory
+enable_testing()
+add_subdirectory(test)

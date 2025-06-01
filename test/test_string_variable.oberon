@@ -1,0 +1,7 @@
+MODULE StringVal;
+VAR char : CHAR;
+BEGIN
+    char := "a";
+    PRINT char;
+    PRINT "\n";
+END.

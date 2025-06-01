@@ -1,0 +1,15 @@
+MODULE TestIfElse;
+VAR a : INTEGER;
+VAR b : INTEGER;
+BEGIN
+    a := 5;
+    b := 10;
+    IF a > 3 THEN
+        PRINT 1;
+    ELSEIF b < 15 THEN
+        PRINT 0;
+    ELSE
+        PRINT -1;
+    END
+    PRINT "\n";
+END.
