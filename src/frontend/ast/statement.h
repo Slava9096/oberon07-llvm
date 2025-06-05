@@ -72,7 +72,7 @@ class StatementWrite: public Statement
                         formatStr = "%d";
                         value = builder.getInt32(arg);
                     } else if constexpr (std::is_same_v<T, float>) {
-                        formatStr = "%f";
+                        formatStr = "%g";
                         value = llvm::ConstantFP::get(builder.getFloatTy(), static_cast<double>(arg)); // явное приведение к double
                     } else if constexpr (std::is_same_v<T, bool>) {
                         formatStr = "%d";
@@ -133,7 +133,7 @@ class StatementWriteVar: public Statement
             if (value->getType()->isIntegerTy(32)) {
                 formatStr = "%d";
             } else if (value->getType()->isFloatTy()) {
-                formatStr = "%f";
+                formatStr = "%g";
                 // Convert float to double for printf
                 value = builder.CreateFPExt(value, builder.getDoubleTy());
             } else if (value->getType()->isIntegerTy(1)) {
