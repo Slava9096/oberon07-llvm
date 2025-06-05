@@ -57,36 +57,47 @@ class StatementWrite: public Statement
             }, text);
         }
         llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
-            llvm::Function* printfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("printf");
-            if (!printfFunc) {
-                std::vector<llvm::Type*> printfArgs = {llvm::PointerType::get(*context, 0)};
-                llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), printfArgs, true);
-                printfFunc = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage, "printf", builder.GetInsertBlock()->getParent()->getParent());
-            }
-
-            std::string formatStr;
-            llvm::Value* value;
-            std::visit([&](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, int>) {
-                    formatStr = "%d";
-                    value = builder.getInt32(arg);
-                } else if constexpr (std::is_same_v<T, float>) {
-                    formatStr = "%f";
-                    value = llvm::ConstantFP::get(builder.getFloatTy(), arg);
-                } else if constexpr (std::is_same_v<T, bool>) {
-                    formatStr = "%d";
-                    value = builder.getInt1(arg);
-                } else if constexpr (std::is_same_v<T, std::string>) {
-                    formatStr = "%s";
-                    value = builder.CreateGlobalStringPtr(arg);
+             llvm::Function* printfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("printf");
+                if (!printfFunc) {
+                    std::vector<llvm::Type*> printfArgs = {llvm::PointerType::get(*context, 0)};
+                    llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), printfArgs, true);
+                    printfFunc = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage, "printf", builder.GetInsertBlock()->getParent()->getParent());
                 }
-            }, text);
 
-            llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr(formatStr);
-            std::vector<llvm::Value*> args = {formatStrPtr, value};
-            builder.CreateCall(printfFunc, args);
-            return nullptr;
+                std::string formatStr;
+                llvm::Value* value = nullptr;
+                std::visit([&](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, int>) {
+                        formatStr = "%d";
+                        value = builder.getInt32(arg);
+                    } else if constexpr (std::is_same_v<T, float>) {
+                        formatStr = "%f";
+                        value = llvm::ConstantFP::get(builder.getFloatTy(), static_cast<double>(arg)); // явное приведение к double
+                    } else if constexpr (std::is_same_v<T, bool>) {
+                        formatStr = "%d";
+                        value = builder.getInt1(arg);
+                    } else if constexpr (std::is_same_v<T, std::string>) {
+                        formatStr = "%s";
+                        value = builder.CreateGlobalStringPtr(arg);
+                    }
+                }, text);
+
+                llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr(formatStr);
+                std::vector<llvm::Value*> args = {formatStrPtr};
+
+                if (value) {
+                    if (llvm::isa<llvm::ConstantFP>(value) && value->getType()->isFloatTy()) {
+                        // Продвигаем float до double для printf
+                        llvm::Value* promoted = builder.CreateFPExt(value, builder.getDoubleTy());
+                        args.push_back(promoted);
+                    } else {
+                        args.push_back(value);
+                    }
+                }
+
+                builder.CreateCall(printfFunc, args);
+                return nullptr;
         }
 };
 class StatementWriteVar: public Statement
@@ -118,11 +129,13 @@ class StatementWriteVar: public Statement
 
             llvm::Value* value = expression->codegen(context, builder);
             std::string formatStr;
-            
+
             if (value->getType()->isIntegerTy(32)) {
                 formatStr = "%d";
             } else if (value->getType()->isFloatTy()) {
-                formatStr = "%.6f";  // Use 6 decimal places for float output
+                formatStr = "%f";
+                // Convert float to double for printf
+                value = builder.CreateFPExt(value, builder.getDoubleTy());
             } else if (value->getType()->isIntegerTy(1)) {
                 formatStr = "%d";
             } else if (value->getType()->isPointerTy()) {
@@ -203,27 +216,27 @@ class StatementAssign: public Statement
 class StatementAssignStr: public Statement
 {
     LocationValue* lvalue;
-    std::string* text;
+    std::string text;
     public:
         StatementAssignStr(LocationValue* lvalue, std::string* text)
         {
             this->lvalue = lvalue;
-            this->text = text;
+            this->text = *text;
         }
         ~StatementAssignStr()
         {
             delete lvalue;
-            delete text;
         }
         void Execute(Context* context) override
         {
-            lvalue->Set(*text, context);
+            lvalue->Set(text, context);
         }
         llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
             llvm::Module* module = currentFunc->getParent();
 
-            llvm::Constant* str = llvm::ConstantDataArray::getString(*context, *text);
+            // Create a global string constant
+            llvm::Constant* str = llvm::ConstantDataArray::getString(*context, text);
             llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
                 *module,
                 str->getType(),
@@ -233,18 +246,10 @@ class StatementAssignStr: public Statement
                 ".str"
             );
 
-            llvm::Type* elementType = llvm::Type::getInt8Ty(*context);
+            // Get the pointer to the string
+            llvm::Value* strPtr = builder.CreateConstGEP1_64(str->getType(), gvar, 0, "strptr");
 
-            llvm::Value* zero = builder.getInt32(0);
-            std::vector<llvm::Value*> indices = {zero, zero};
-
-            llvm::Value* strPtr = builder.CreateGEP(
-                elementType,
-                gvar,
-                indices,
-                "strptr"
-            );
-
+            // Store the string pointer in the variable
             llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
             builder.CreateStore(strPtr, lhsPtr);
 
@@ -332,10 +337,10 @@ class StatementReadFloat: public Statement
         size_t ePos = number.find('E');
 
         if (ePos == std::string::npos){
-            return std::stod(number);
+            return std::stof(number);
         }
 
-        return std::stod(number.substr(0,ePos)) * std::pow(10, std::stoi(number.substr(ePos + 1)));
+        return std::stof(number.substr(0,ePos)) * std::pow(10, std::stoi(number.substr(ePos + 1)));
     }
 };
 
@@ -372,8 +377,11 @@ class StatementWhile: public Statement
             builder.SetInsertPoint(condBlock);
             llvm::Value* cond = condition->codegen(context, builder);
 
-            if (cond->getType() != builder.getInt1Ty()) {
+            // Convert condition to boolean if needed
+            if (cond->getType()->isIntegerTy(32)) {
                 cond = builder.CreateICmpNE(cond, llvm::Constant::getNullValue(cond->getType()), "cond.bool");
+            } else if (cond->getType()->isFloatTy()) {
+                cond = builder.CreateFCmpONE(cond, llvm::ConstantFP::get(cond->getType(), 0.0), "cond.bool");
             }
 
             builder.CreateCondBr(cond, bodyBlock, endBlock);
@@ -582,6 +590,34 @@ class DeclarationStatement : public Statement
             }
 
             return existingAlloca;
+        }
+};
+
+class StatementModule : public Statement
+{
+    Statement* declarations;
+    Statement* statements;
+    public:
+        StatementModule(Statement* declarations, Statement* statements)
+        {
+            this->declarations = declarations;
+            this->statements = statements;
+        }
+        ~StatementModule()
+        {
+            delete declarations;
+            delete statements;
+        }
+        void Execute(Context* context) override
+        {
+            declarations->Execute(context);
+            statements->Execute(context);
+        }
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override
+        {
+            declarations->codegen(context, builder);
+            statements->codegen(context, builder);
+            return nullptr;
         }
 };
 

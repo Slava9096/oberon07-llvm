@@ -1,4 +1,4 @@
- // Genereate C++ code
+// Genereate C++ code
 %skeleton "lalr1.cc"
 
 %code requires {
@@ -25,8 +25,8 @@
 }
 
 // %token TOK_EOF
-%token TOK_SEMICOLON TOK_COLON TOK_COMMA
-%token TOK_IF TOK_BEGIN TOK_ELSE TOK_THEN TOK_END TOK_WHILE TOK_TRUE TOK_FALSE TOK_DO
+%token TOK_SEMICOLON TOK_COLON TOK_COMMA TOK_DOT
+%token TOK_IF TOK_BEGIN TOK_ELSE TOK_THEN TOK_END TOK_WHILE TOK_TRUE TOK_FALSE TOK_DO TOK_MODULE TOK_PROCEDURE TOK_RETURN
 %token TOK_GEQ TOK_LEQ TOK_GT TOK_LT TOK_EQ TOK_NEQ TOK_OR TOK_AMPERSAND TOK_NOT
 %token TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT
 %token TOK_PLUS TOK_MINUS TOK_MULT TOK_DIV TOK_DIV_INT TOK_DIV_MOD TOK_ASSIGN
@@ -48,6 +48,7 @@
 
     Statement* statement;
     StatementBlock* block;
+    StatementModule* module;
     BooleanExpression* booleanexpression;
     RelationalExpression* relationalexpression;
     ArithmeticExpression* arithmeticexpression;
@@ -60,6 +61,8 @@
 
 %defines
 
+%type <module> module
+%type <block> declarations
 %type <block> statements
 %type <block> statementsI
 %type <block> statementsC
@@ -80,6 +83,7 @@
 
 %type <lvalue> lvalue
 
+%type <statement> declaration
 %type <statement> decl_lvalue_int
 %type <statement> decl_lvalue_real
 %type <statement> decl_lvalue_str
@@ -87,9 +91,15 @@
 %%
 
 program
-    :statements YYEOF
+    :module YYEOF
     {
-        *result = $statements;
+        *result = $module;
+    }
+;
+module
+    : TOK_MODULE TOK_IDENTIFIER TOK_SEMICOLON declarations TOK_BEGIN statements TOK_END TOK_DOT
+    {
+        $$ = new StatementModule($declarations, $statements);
     }
 ;
 statements
@@ -142,9 +152,6 @@ statementC
     {
         $$ = new StatementAssign($lvalue, $arithmeticexpression);
     }
-    | decl_lvalue_int TOK_SEMICOLON
-    | decl_lvalue_real TOK_SEMICOLON
-    | decl_lvalue_str TOK_SEMICOLON
     | lvalue TOK_ASSIGN TOK_STRING_VALUE TOK_SEMICOLON
     {
         $$ = new StatementAssignStr($lvalue, $TOK_STRING_VALUE);
@@ -311,6 +318,23 @@ arithmeticexpressionX
         $$ = $[a];
     }
 ;
+declarations
+    : %empty
+    {
+        std::vector<Statement*> declarations;
+        $$ = new StatementBlock(declarations);
+    }
+    | declarations[d] declaration
+    {
+        $d->statements.push_back($declaration);
+    }
+;
+declaration
+    : decl_lvalue_int TOK_SEMICOLON
+    | decl_lvalue_real TOK_SEMICOLON
+    | decl_lvalue_str TOK_SEMICOLON
+    // | decl_procedure TOK_SEMICOLON
+;
 decl_lvalue_int
     : TOK_VAR TOK_IDENTIFIER TOK_COLON TOK_INTEGER
     {
@@ -332,6 +356,26 @@ decl_lvalue_str
         delete $TOK_IDENTIFIER;
     }
 ;
+// decl_procedure
+//     : TOK_PROCEDURE TOK_IDENTIFIER[id1] parameters TOK_SEMICOLON procedurebody TOK_IDENTIFIER[id2]
+//     {
+//         if (*$id1 != *$id2) {
+//             std::cerr << "Syntex error: Procedure name mismatch. Expected '" << *$id1
+//                       << "', found '" << *$id2 << "'." << std::endl;
+//             YYERROR;
+//         }
+//         $$ = new DeclarationProcedureStatement(*$id1, $procedurebody);
+//         delete $id1;
+//         delete $id2;
+//     }
+// ;
+// procedurebody
+//     : declarations TOK_BEGIN statements TOK_END
+//     | declarations TOK_BEGIN statements TOK_RETURN arithmeticexpression TOK_END
+// ;
+// parameters
+//     : TOK_PARENTHESES_LEFT TOK_PARENTHESES_RIGHT
+// ;
 lvalue
     : TOK_IDENTIFIER
     {

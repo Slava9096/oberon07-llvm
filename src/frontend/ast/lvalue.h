@@ -8,58 +8,40 @@ class LocationValueVariable : public LocationValue
 {
     std::string name;
     public:
-        LocationValueVariable(const std::string& name)
+        LocationValueVariable(std::string name) 
         {
             this->name = name;
         }
-        ~LocationValueVariable()
+        ~LocationValueVariable() override {}
+        void Set(Types value, Context* context) override
         {
+            context->values[name] = value;
         }
         Types Evaluate(Context* context) override
         {
             return context->values[name];
         }
-        void Set(Types value, Context* context) override
-        {
-            context->values[name] = value;
-        }
         llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
             llvm::AllocaInst* alloca = nullptr;
 
-            // Look for existing alloca in the entry block
+            // Ищем существующее alloca
             for (auto& inst : currentFunc->getEntryBlock()) {
-                if (auto* existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst)) {
-                    if (existingAlloca->getName() == name) {
-                        alloca = existingAlloca;
-                        break;
+                if ((alloca = llvm::dyn_cast<llvm::AllocaInst>(&inst))) {
+                    if (alloca->getName() == name) {
+                        return builder.CreateLoad(alloca->getAllocatedType(), alloca, name + "_val");
                     }
                 }
             }
 
-            if (!alloca) {
-                // If not found, create a new alloca in the entry block
-                llvm::IRBuilder<> entryBuilder(&currentFunc->getEntryBlock(), currentFunc->getEntryBlock().begin());
-                // Check if this is a float variable by looking at the declaration
-                bool isFloat = false;
-                for (auto& inst : currentFunc->getEntryBlock()) {
-                    if (auto* existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst)) {
-                        if (existingAlloca->getName() == name) {
-                            isFloat = existingAlloca->getAllocatedType()->isFloatTy();
-                            break;
-                        }
-                    }
-                }
-                alloca = entryBuilder.CreateAlloca(isFloat ? builder.getFloatTy() : builder.getInt32Ty(), nullptr, name);
-            }
-
-            return builder.CreateLoad(alloca->getAllocatedType(), alloca, name + "_val");
+            // Если не найдено — ошибка (переменная не объявлена)
+            throw std::runtime_error("Variable '" + name + "' not declared");
         }
         llvm::Value* getPointer(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
             llvm::AllocaInst* alloca = nullptr;
 
-            // Look for existing alloca in the entry block
+            // Check if variable already exists
             for (auto& inst : currentFunc->getEntryBlock()) {
                 if (auto* existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst)) {
                     if (existingAlloca->getName() == name) {
@@ -70,19 +52,7 @@ class LocationValueVariable : public LocationValue
             }
 
             if (!alloca) {
-                // If not found, create a new alloca in the entry block
-                llvm::IRBuilder<> entryBuilder(&currentFunc->getEntryBlock(), currentFunc->getEntryBlock().begin());
-                // Check if this is a float variable by looking at the declaration
-                bool isFloat = false;
-                for (auto& inst : currentFunc->getEntryBlock()) {
-                    if (auto* existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst)) {
-                        if (existingAlloca->getName() == name) {
-                            isFloat = existingAlloca->getAllocatedType()->isFloatTy();
-                            break;
-                        }
-                    }
-                }
-                alloca = entryBuilder.CreateAlloca(isFloat ? builder.getFloatTy() : builder.getInt32Ty(), nullptr, name);
+                throw std::runtime_error("Variable '" + name + "' not declared");
             }
 
             return alloca;

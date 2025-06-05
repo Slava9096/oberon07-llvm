@@ -6,9 +6,6 @@
 #include <type_traits>
 #include <variant>
 
-template<typename T>
-inline constexpr bool always_false = false;
-
     class ArithmeticExpressionConst : public ArithmeticExpression
     {
         Types value;
@@ -49,7 +46,6 @@ inline constexpr bool always_false = false;
         Types operator()(float l, float r) const { return l + r; }
         Types operator()(int l, float r) const { return (float)l + r; }
         Types operator()(float l, int r) const { return l + (float)r; }
-        Types operator()(const std::string& l, const std::string& r) const { return l + r; }
         template<typename T, typename U>
         Types operator()(T l, U r) const {
             throw std::runtime_error("Invalid types for addition");
@@ -118,8 +114,8 @@ inline constexpr bool always_false = false;
         return nullptr;
     }
 
-    BINARYOP(ArithmeticExpressionPlus, ArithmeticExpression, ArithmeticExpression, Types, AddVisitor, 
-        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ? 
+    BINARYOP(ArithmeticExpressionPlus, ArithmeticExpression, ArithmeticExpression, Types, AddVisitor,
+        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ?
             builder.CreateFAdd(
                 // Convert all operands to float
                 lhs->getType()->isIntegerTy() ? builder.CreateSIToFP(lhs, builder.getFloatTy()) : lhs,
@@ -128,7 +124,7 @@ inline constexpr bool always_false = false;
             builder.CreateAdd(lhs, rhs))
 
     BINARYOP(ArithmeticExpressionMinus, ArithmeticExpression, ArithmeticExpression, Types, SubVisitor,
-        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ? 
+        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ?
             builder.CreateFSub(
                 lhs->getType()->isIntegerTy() ? builder.CreateSIToFP(lhs, builder.getFloatTy()) : lhs,
                 rhs->getType()->isIntegerTy() ? builder.CreateSIToFP(rhs, builder.getFloatTy()) : rhs
@@ -136,7 +132,7 @@ inline constexpr bool always_false = false;
             builder.CreateSub(lhs, rhs))
 
     BINARYOP(ArithmeticExpressionMult, ArithmeticExpression, ArithmeticExpression, Types, MultVisitor,
-        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ? 
+        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ?
             builder.CreateFMul(
                 lhs->getType()->isIntegerTy() ? builder.CreateSIToFP(lhs, builder.getFloatTy()) : lhs,
                 rhs->getType()->isIntegerTy() ? builder.CreateSIToFP(rhs, builder.getFloatTy()) : rhs
@@ -144,7 +140,7 @@ inline constexpr bool always_false = false;
             builder.CreateMul(lhs, rhs))
 
     BINARYOP(ArithmeticExpressionDiv, ArithmeticExpression, ArithmeticExpression, Types, DivVisitor,
-        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ? 
+        (lhs->getType()->isFloatTy() || rhs->getType()->isFloatTy()) ?
             builder.CreateFDiv(
                 lhs->getType()->isIntegerTy() ? builder.CreateSIToFP(lhs, builder.getFloatTy()) : lhs,
                 rhs->getType()->isIntegerTy() ? builder.CreateSIToFP(rhs, builder.getFloatTy()) : rhs

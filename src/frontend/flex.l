@@ -6,8 +6,8 @@
  #include "parser.hpp"
  #include "foolexer.h"
 
- #define DEBUG_LEXER(X) std::cerr << X << " "; std::cerr.flush();
- #define TOKEN(t) DEBUG_LEXER(#t) return yy::parser::token::t
+
+ #define TOKEN(t) if (debugMode) std::cerr << "TOKEN: " << #t << " (" << yytext << ")" << std::endl; return yy::parser::token::t
 
 // TODO: Add unicode chars
  std::string interpretEscapes(const std::string& str){
@@ -41,10 +41,10 @@
      size_t ePos = number.find('E');
 
      if (ePos == std::string::npos){
-         return std::stod(number);
+         return std::stof(number);
      }
 
-     return std::stod(number.substr(0,ePos)) * std::pow(10, std::stoi(number.substr(ePos + 1)));
+     return std::stof(number.substr(0,ePos)) * std::pow(10, std::stoi(number.substr(ePos + 1)));
  }
 %}
 
@@ -80,16 +80,16 @@
  /* "IN"                                { TOKEN(TOK_IN); } */
  /* "IS"                                { TOKEN(TOK_IS); } */
 "MOD"                               { TOKEN(TOK_DIV_MOD); }
- /* "MODULE"                            { TOKEN(TOK_MODULE); } */
+"MODULE"                            { TOKEN(TOK_MODULE); }
  /* "NIL"                               { TOKEN(TOK_NIL); } */
  /* "OF"                                { TOKEN(TOK_OF); } */
 "OR"                                { TOKEN(TOK_OR); }
  /* "POINTER"                           { TOKEN(TOK_POINTER); } */
- /* "PROCEDURE"                         { TOKEN(TOK_PROCEDURE); } */
+"PROCEDURE"                         { TOKEN(TOK_PROCEDURE); }
 "REAL"                              { TOKEN(TOK_REAL); }
  /* "RECORD"                            { TOKEN(TOK_RECORD); } */
  /* "REPEAT"                            { TOKEN(TOK_REPEAT); } */
- /* "RETURN"                            { TOKEN(TOK_RETURN); } */
+"RETURN"                            { TOKEN(TOK_RETURN); }
 "THEN"                              { TOKEN(TOK_THEN); }
  /* "TO"                                { TOKEN(TOK_TO); } */
 "TRUE"                              { TOKEN(TOK_TRUE); }
@@ -108,7 +108,7 @@
 "/"                                 { TOKEN(TOK_DIV); }
 "~"                                 { TOKEN(TOK_NOT); }
 "&"                                 { TOKEN(TOK_AMPERSAND); }
- /* "."                                 { TOKEN(TOK_DOT); } */
+"."                                 { TOKEN(TOK_DOT); }
 ","                                 { TOKEN(TOK_COMMA); }
 ";"                                 { TOKEN(TOK_SEMICOLON); }
 ":"                                 { TOKEN(TOK_COLON); }
@@ -151,7 +151,7 @@
 
 %%
 
-FooLexer::FooLexer(std::istream& is, std::ostream& os) : yyFlexLexer(is, os)
+FooLexer::FooLexer(std::istream& is, std::ostream& os) : yyFlexLexer(is, os), debugMode(false)
 {
 }
 int FooLexer::yylex(yy::parser::semantic_type* yylval)

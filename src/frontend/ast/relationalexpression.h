@@ -79,10 +79,16 @@ BINARYOP(RelationalExpressionLT, RelationalExpression, ArithmeticExpression, boo
          }())
 BINARYOP(RelationalExpressionGT, RelationalExpression, ArithmeticExpression, bool, GTVisitor,
  [&]() -> llvm::Value* {
-             if (lhs->getType()->isIntegerTy(32)) {
+             if (lhs->getType()->isIntegerTy(32) && rhs->getType()->isIntegerTy(32)) {
                  return builder.CreateICmpSGT(lhs, rhs);
-             } else if (lhs->getType()->isFloatTy()) {
+             } else if (lhs->getType()->isFloatTy() && rhs->getType()->isFloatTy()) {
                  return builder.CreateFCmpOGT(lhs, rhs);
+             } else if (lhs->getType()->isIntegerTy(32) && rhs->getType()->isFloatTy()) {
+                 llvm::Value* converted = builder.CreateSIToFP(lhs, builder.getFloatTy());
+                 return builder.CreateFCmpOGT(converted, rhs);
+             } else if (lhs->getType()->isFloatTy() && rhs->getType()->isIntegerTy(32)) {
+                 llvm::Value* converted = builder.CreateSIToFP(rhs, builder.getFloatTy());
+                 return builder.CreateFCmpOGT(lhs, converted);
              } else {
                  throw std::runtime_error("Unsupported operand types for greater than comparison");
              }
