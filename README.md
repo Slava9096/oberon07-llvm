@@ -1,2 +1,2 @@
-## Oberon-07 llvm compiler for esp32 microcontrolles
+## Oberon-07 llvm compiler
 WIP for uni
