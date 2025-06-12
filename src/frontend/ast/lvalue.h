@@ -3,6 +3,7 @@
 
 #include "base.h"
 #include "llvm/IR/DerivedTypes.h"
+#include <stdexcept>
 
 class LocationValueVariable : public LocationValue
 {
@@ -17,45 +18,24 @@ class LocationValueVariable : public LocationValue
         {
             context->values[name] = value;
         }
+        std::string GetName() const override {
+            return name;
+        }
         Types Evaluate(Context* context) override
         {
             return context->values[name];
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
-            llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
-            llvm::AllocaInst* alloca = nullptr;
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
+            Symbol* symbol = symbolTable->lookup(name);
 
-            // Ищем существующее alloca
-            for (auto& inst : currentFunc->getEntryBlock()) {
-                if ((alloca = llvm::dyn_cast<llvm::AllocaInst>(&inst))) {
-                    if (alloca->getName() == name) {
-                        return builder.CreateLoad(alloca->getAllocatedType(), alloca, name + "_val");
-                    }
-                }
-            }
-
-            // Если не найдено — ошибка (переменная не объявлена)
-            throw std::runtime_error("Variable '" + name + "' not declared");
-        }
-        llvm::Value* getPointer(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
-            llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
-            llvm::AllocaInst* alloca = nullptr;
-
-            // Check if variable already exists
-            for (auto& inst : currentFunc->getEntryBlock()) {
-                if (auto* existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst)) {
-                    if (existingAlloca->getName() == name) {
-                        alloca = existingAlloca;
-                        break;
-                    }
-                }
-            }
-
-            if (!alloca) {
+            // If variable is not found
+            if (!symbol || !symbol->allocaInst) {
                 throw std::runtime_error("Variable '" + name + "' not declared");
             }
 
-            return alloca;
+            llvm::AllocaInst* alloca = symbol->allocaInst;
+
+            return builder.CreateLoad(alloca->getAllocatedType(), alloca);
         }
 };
 

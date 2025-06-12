@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(oberon07_llvm_esp32)
+project(oberon07_llvm)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,22 +68,22 @@ set(HEADERS
 )
 
 # Create executable
-add_executable(oberon07_llvm_esp32 ${SOURCES} ${HEADERS})
+add_executable(oberon07_llvm ${SOURCES} ${HEADERS})
 
 # Set include directories for the target
-target_include_directories(oberon07_llvm_esp32 PRIVATE
+target_include_directories(oberon07_llvm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 # Link against LLVM
-target_link_libraries(oberon07_llvm_esp32 PRIVATE
+target_link_libraries(oberon07_llvm PRIVATE
     LLVM
 )
 
 # Add compiler definitions
-target_compile_definitions(oberon07_llvm_esp32 PRIVATE
+target_compile_definitions(oberon07_llvm PRIVATE
     _GNU_SOURCE
     __STDC_CONSTANT_MACROS
     __STDC_FORMAT_MACROS
@@ -91,7 +91,7 @@ target_compile_definitions(oberon07_llvm_esp32 PRIVATE
 )
 
 # Set output directories
-set_target_properties(oberon07_llvm_esp32 PROPERTIES
+set_target_properties(oberon07_llvm PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 # Enable testing and include test subdirectory

@@ -10,11 +10,13 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Casting.h"
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "base.h"
 #include "arithmeticexpression.h"
+#include "lvalue.h"
 class StatementBlock : public Statement
 {
     public:
@@ -32,9 +34,9 @@ class StatementBlock : public Statement
         {
             for(Statement* statement : statements) statement->Execute(context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override
         {
-                for(Statement* statement : statements) statement->codegen(context, builder);
+                for(Statement* statement : statements) statement->codegen(context, builder, symbolTable);
                 return nullptr;
         }
 };
@@ -56,7 +58,7 @@ class StatementWrite: public Statement
                 std::cout << value;
             }, text);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
              llvm::Function* printfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("printf");
                 if (!printfFunc) {
                     std::vector<llvm::Type*> printfArgs = {llvm::PointerType::get(*context, 0)};
@@ -73,17 +75,17 @@ class StatementWrite: public Statement
                         value = builder.getInt32(arg);
                     } else if constexpr (std::is_same_v<T, float>) {
                         formatStr = "%g";
-                        value = llvm::ConstantFP::get(builder.getFloatTy(), static_cast<double>(arg)); // явное приведение к double
+                        value = llvm::ConstantFP::get(builder.getFloatTy(), static_cast<double>(arg));
                     } else if constexpr (std::is_same_v<T, bool>) {
                         formatStr = "%d";
                         value = builder.getInt1(arg);
                     } else if constexpr (std::is_same_v<T, std::string>) {
                         formatStr = "%s";
-                        value = builder.CreateGlobalStringPtr(arg);
+                        value = builder.CreateGlobalString(arg);
                     }
                 }, text);
 
-                llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr(formatStr);
+                llvm::Value* formatStrPtr = builder.CreateGlobalString(formatStr);
                 std::vector<llvm::Value*> args = {formatStrPtr};
 
                 if (value) {
@@ -119,7 +121,7 @@ class StatementWriteVar: public Statement
                 std::cout << arg;
             }, value);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* printfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("printf");
             if (!printfFunc) {
                 std::vector<llvm::Type*> printfArgs = {llvm::PointerType::get(*context, 0)};
@@ -127,7 +129,7 @@ class StatementWriteVar: public Statement
                 printfFunc = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage, "printf", builder.GetInsertBlock()->getParent()->getParent());
             }
 
-            llvm::Value* value = expression->codegen(context, builder);
+            llvm::Value* value = expression->codegen(context, builder, symbolTable);
             std::string formatStr;
 
             if (value->getType()->isIntegerTy(32)) {
@@ -142,7 +144,7 @@ class StatementWriteVar: public Statement
                 formatStr = "%s";
             }
 
-            llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr(formatStr);
+            llvm::Value* formatStrPtr = builder.CreateGlobalString(formatStr);
             std::vector<llvm::Value*> args = {formatStrPtr, value};
             builder.CreateCall(printfFunc, args);
             return nullptr;
@@ -166,7 +168,7 @@ class StatementRead: public Statement
             std::cin >> tmp;
             lvalue->Set(tmp, context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* scanfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("scanf");
             if (!scanfFunc) {
                 std::vector<llvm::Type*> scanfArgs = {llvm::PointerType::get(*context, 0)};
@@ -174,12 +176,12 @@ class StatementRead: public Statement
                 scanfFunc = llvm::Function::Create(scanfType, llvm::Function::ExternalLinkage, "scanf", builder.GetInsertBlock()->getParent()->getParent());
             }
 
-            llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr("%s");
+            llvm::Value* formatStrPtr = builder.CreateGlobalString("%s");
             llvm::Value* buffer = builder.CreateAlloca(llvm::Type::getInt8Ty(*context), builder.getInt32(256));
             std::vector<llvm::Value*> args = {formatStrPtr, buffer};
             builder.CreateCall(scanfFunc, args);
 
-            llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
+            llvm::Value* lhsPtr = symbolTable->lookup(lvalue->GetName())->allocaInst;
             builder.CreateStore(buffer, lhsPtr);
             return nullptr;
         }
@@ -205,9 +207,9 @@ class StatementAssign: public Statement
             Types tmp = expression->Evaluate(context);
             lvalue->Set(tmp, context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
-            llvm::Value* rhs = expression->codegen(context, builder);
-            llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
+            llvm::Value* rhs = expression->codegen(context, builder, symbolTable);
+            llvm::Value* lhsPtr = symbolTable->lookup(lvalue->GetName())->allocaInst;
             builder.CreateStore(rhs, lhsPtr);
             return nullptr;
         }
@@ -231,7 +233,7 @@ class StatementAssignStr: public Statement
         {
             lvalue->Set(text, context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
             llvm::Module* module = currentFunc->getParent();
 
@@ -250,7 +252,7 @@ class StatementAssignStr: public Statement
             llvm::Value* strPtr = builder.CreateConstGEP1_64(str->getType(), gvar, 0, "strptr");
 
             // Store the string pointer in the variable
-            llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
+            llvm::Value* lhsPtr = symbolTable->lookup(lvalue->GetName())->allocaInst;
             builder.CreateStore(strPtr, lhsPtr);
 
             return nullptr;
@@ -275,7 +277,7 @@ class StatementReadInt: public Statement
             std::cin >> tmp;
             lvalue->Set(tmp, context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* scanfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("scanf");
             if (!scanfFunc) {
                 std::vector<llvm::Type*> scanfArgs = {llvm::PointerType::get(*context, 0)};
@@ -283,8 +285,8 @@ class StatementReadInt: public Statement
                 scanfFunc = llvm::Function::Create(scanfType, llvm::Function::ExternalLinkage, "scanf", builder.GetInsertBlock()->getParent()->getParent());
             }
 
-            llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr("%d");
-            llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
+            llvm::Value* formatStrPtr = builder.CreateGlobalString("%d");
+            llvm::Value* lhsPtr = symbolTable->lookup(lvalue->GetName())->allocaInst;
             std::vector<llvm::Value*> args = {formatStrPtr, lhsPtr};
             builder.CreateCall(scanfFunc, args);
             return nullptr;
@@ -309,7 +311,7 @@ class StatementReadFloat: public Statement
             std::cin >> tmp;
             lvalue->Set(parseFloat(tmp), context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* scanfFunc = builder.GetInsertBlock()->getParent()->getParent()->getFunction("scanf");
             if (!scanfFunc) {
                 std::vector<llvm::Type*> scanfArgs = {llvm::PointerType::get(*context, 0)};
@@ -319,7 +321,7 @@ class StatementReadFloat: public Statement
 
             // Create a temporary float variable to store the scanf result
             llvm::Value* tempFloat = builder.CreateAlloca(builder.getFloatTy(), nullptr, "temp_float");
-            llvm::Value* formatStrPtr = builder.CreateGlobalStringPtr("%f");
+            llvm::Value* formatStrPtr = builder.CreateGlobalString("%f");
             std::vector<llvm::Value*> args = {formatStrPtr, tempFloat};
             builder.CreateCall(scanfFunc, args);
 
@@ -327,7 +329,7 @@ class StatementReadFloat: public Statement
             llvm::Value* loadedFloat = builder.CreateLoad(builder.getFloatTy(), tempFloat, "loaded_float");
             
             // Store the loaded value into the target variable
-            llvm::Value* lhsPtr = lvalue->getPointer(context, builder);
+            llvm::Value* lhsPtr = symbolTable->lookup(lvalue->GetName())->allocaInst;
             builder.CreateStore(loadedFloat, lhsPtr);
             
             return nullptr;
@@ -365,7 +367,7 @@ class StatementWhile: public Statement
                 statement->Execute(context);
             }
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Function* parentFunc = builder.GetInsertBlock()->getParent();
 
             llvm::BasicBlock* condBlock = llvm::BasicBlock::Create(*context, "loop.cond", parentFunc);
@@ -375,7 +377,7 @@ class StatementWhile: public Statement
             builder.CreateBr(condBlock);
 
             builder.SetInsertPoint(condBlock);
-            llvm::Value* cond = condition->codegen(context, builder);
+            llvm::Value* cond = condition->codegen(context, builder, symbolTable);
 
             // Convert condition to boolean if needed
             if (cond->getType()->isIntegerTy(32)) {
@@ -387,7 +389,7 @@ class StatementWhile: public Statement
             builder.CreateCondBr(cond, bodyBlock, endBlock);
 
             builder.SetInsertPoint(bodyBlock);
-            statement->codegen(context, builder);
+            statement->codegen(context, builder, symbolTable);
             builder.CreateBr(condBlock);
 
             builder.SetInsertPoint(endBlock);
@@ -436,14 +438,14 @@ class StatementIfElseIfElse: public Statement
                 elseblock->Execute(context);
             }
         }
-    llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+    llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
         llvm::Function* parentFunc = builder.GetInsertBlock()->getParent();
         llvm::BasicBlock* currentBlock = builder.GetInsertBlock();
         llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*context, "if.end", parentFunc);
 
         if (conditions.empty()) {
             if (elseblock) {
-                elseblock->codegen(context, builder);
+                elseblock->codegen(context, builder, symbolTable);
             }
             builder.CreateBr(mergeBlock);
             return nullptr;
@@ -464,7 +466,7 @@ class StatementIfElseIfElse: public Statement
 
         for (size_t i = 0; i < conditions.size(); i++) {
             builder.SetInsertPoint(condBlocks[i]);
-            llvm::Value* cond = conditions[i]->codegen(context, builder);
+            llvm::Value* cond = conditions[i]->codegen(context, builder, symbolTable);
 
             if (cond->getType() != builder.getInt1Ty()) {
                 cond = builder.CreateICmpNE(cond, llvm::Constant::getNullValue(cond->getType()), "cond.bool");
@@ -475,14 +477,14 @@ class StatementIfElseIfElse: public Statement
 
             builder.SetInsertPoint(thenBlocks[i]);
             if (blocks[i]) {
-                blocks[i]->codegen(context, builder);
+                blocks[i]->codegen(context, builder, symbolTable);
             }
             builder.CreateBr(mergeBlock);
         }
 
         if (elseblock) {
             builder.SetInsertPoint(elseBlock);
-            elseblock->codegen(context, builder);
+            elseblock->codegen(context, builder, symbolTable);
             builder.CreateBr(mergeBlock);
         }
 
@@ -544,7 +546,7 @@ class DeclarationStatement : public Statement
         {
             context->values.emplace(std::make_pair(name, T{}));
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
             llvm::Type* ty = nullptr;
 
             if constexpr (std::is_same_v<T, int>) {
@@ -556,40 +558,38 @@ class DeclarationStatement : public Statement
             } else if constexpr (std::is_same_v<T, std::string>) {
                 ty = llvm::PointerType::get(llvm::Type::getInt8Ty(*context), 0);
             } else {
-                return nullptr;
+                throw std::runtime_error("Unsupported variable type");
             }
 
+            if (symbolTable->lookup(name)) {
+                throw std::runtime_error("Variable '" + name + "' already declared");
+            }
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
-            llvm::AllocaInst* existingAlloca = nullptr;
 
-            // Check if variable already exists
-            for (auto& inst : currentFunc->getEntryBlock()) {
-                if ((existingAlloca = llvm::dyn_cast<llvm::AllocaInst>(&inst))) {
-                    if (existingAlloca->getName() == name) {
-                        break;
-                    }
-                }
+            llvm::IRBuilder<> entryBuilder(&currentFunc->getEntryBlock(), currentFunc->getEntryBlock().begin());
+            llvm::AllocaInst* alloca = entryBuilder.CreateAlloca(ty, nullptr, name);
+
+            VarType varType;
+            if constexpr (std::is_same_v<T, int>) varType = VarType::Int;
+            else if constexpr (std::is_same_v<T, float>) varType = VarType::Float;
+            else if constexpr (std::is_same_v<T, bool>) varType = VarType::Bool;
+            else if constexpr (std::is_same_v<T, std::string>) varType = VarType::String;
+
+            symbolTable->addVariable(name, varType, alloca);
+
+            if constexpr (std::is_same_v<T, int>) {
+                entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
+            } else if constexpr (std::is_same_v<T, float>) {
+                entryBuilder.CreateStore(llvm::ConstantFP::get(ty, 0.0), alloca);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                llvm::Value* emptyStr = entryBuilder.CreateGlobalString("");
+                entryBuilder.CreateStore(emptyStr, alloca);
             }
 
-            if (!existingAlloca) {
-                // Create new alloca in the entry block
-                llvm::IRBuilder<> entryBuilder(&currentFunc->getEntryBlock(), currentFunc->getEntryBlock().begin());
-                existingAlloca = entryBuilder.CreateAlloca(ty, nullptr, name);
+            return alloca;
 
-                // Initialize with default value
-                if constexpr (std::is_same_v<T, int>) {
-                    entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), existingAlloca);
-                } else if constexpr (std::is_same_v<T, float>) {
-                    entryBuilder.CreateStore(llvm::ConstantFP::get(ty, 0.0), existingAlloca);
-                } else if constexpr (std::is_same_v<T, bool>) {
-                    entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), existingAlloca);
-                } else if constexpr (std::is_same_v<T, std::string>) {
-                    llvm::Value* emptyStr = entryBuilder.CreateGlobalStringPtr("");
-                    entryBuilder.CreateStore(emptyStr, existingAlloca);
-                }
-            }
-
-            return existingAlloca;
         }
 };
 
@@ -613,10 +613,10 @@ class StatementModule : public Statement
             declarations->Execute(context);
             statements->Execute(context);
         }
-        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override
+        llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override
         {
-            declarations->codegen(context, builder);
-            statements->codegen(context, builder);
+            declarations->codegen(context, builder, symbolTable);
+            statements->codegen(context, builder, symbolTable);
             return nullptr;
         }
 };

@@ -21,7 +21,7 @@
             {
                 return true;
             }
-            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
                 return llvm::ConstantInt::get(builder.getInt1Ty(), 1);
             }
         };
@@ -38,7 +38,7 @@
             {
                 return false;
             }
-            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
                 return llvm::ConstantInt::get(builder.getInt1Ty(), 0);
             }
         };
@@ -75,9 +75,9 @@
             RETURNTYPE Evaluate(Context* context) override { \
                 return OPERATION{}(l->Evaluate(context), r->Evaluate(context)); \
             } \
-            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override { \
-                llvm::Value* lhs = l->codegen(context, builder); \
-                llvm::Value* rhs = r->codegen(context, builder); \
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override { \
+                llvm::Value* lhs = l->codegen(context, builder, symbolTable); \
+                llvm::Value* rhs = r->codegen(context, builder, symbolTable); \
                 return CODEGEN; }\
         };
 
@@ -90,8 +90,8 @@
             RETURNTYPE Evaluate(Context* context) override { \
                 return OPERATION{}(x->Evaluate(context)); \
             } \
-            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override { \
-                llvm::Value* val = x->codegen(context, builder); \
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override { \
+                llvm::Value* val = x->codegen(context, builder, symbolTable); \
                 return CODEGEN; }\
         };
 

@@ -21,7 +21,7 @@
             {
                 return value;
             };
-            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder) override {
+            llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
                 return std::visit([&] (auto&& val) -> llvm::Value* {
                     using T = std::decay_t<decltype(val)>;
                     if constexpr (std::is_same_v<T, int>) {
@@ -31,9 +31,9 @@
                     } else if constexpr (std::is_same_v<T, bool>) {
                         return llvm::ConstantInt::get(builder.getInt1Ty(), val);
                     } else if constexpr (std::is_same_v<T, std::string>) {
-                        return builder.CreateGlobalStringPtr(val);
+                        return builder.CreateGlobalString(val);
                     } else {
-                        throw std::runtime_error("Unsupported type");
+                        return nullptr;
                     }
                 }, value);
             }

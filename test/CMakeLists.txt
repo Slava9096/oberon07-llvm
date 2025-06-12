@@ -12,7 +12,7 @@ foreach(test_file ${TEST_FILES})
         add_test(
             NAME ${test_name}
             COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
-                ${CMAKE_BINARY_DIR}/bin/oberon07_llvm_esp32
+                ${CMAKE_BINARY_DIR}/bin/oberon07_llvm
                 ${CMAKE_CURRENT_SOURCE_DIR}/${test_file}
                 ${test_name}
                 ${expected_output}
