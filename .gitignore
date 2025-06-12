@@ -1,7 +1,1 @@
 build
-Makefile
-src/frontend/*.o
-src/frontend/*.output
-src/frontend/stack.hh
-src/frontend/parser.*pp
-src/frontend/lexer.cpp
