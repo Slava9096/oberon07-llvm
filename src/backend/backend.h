@@ -1,6 +1,10 @@
-#pragma once
+#ifndef __BACKEND_H
+#define __BACKEND_H
 
-#include "llvm/IR/Module.h"
 #include <string>
 
-bool generateObjectFile(llvm::Module &module, const std::string &outputFilename, const std::string &targetTriple = "");
+namespace backend {
+    bool compile(const std::string& inputFile, const std::string& outputFile, bool emitAsm = false);
+}
+
+#endif

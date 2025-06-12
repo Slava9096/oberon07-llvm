@@ -1,7 +1,10 @@
-#pragma once
+#ifndef __MIDDLEEND_H
+#define __MIDDLEEND_H
 
-#include "llvm/IR/Module.h"
-#include "llvm/Passes/OptimizationLevel.h"
-#include "llvm/Passes/PassBuilder.h"
+#include <string>
 
-void optimize(llvm::Module& module, llvm::OptimizationLevel optimizationLevel);
+namespace middleend {
+    bool optimize(const std::string& inputFile, int optLevel);
+}
+
+#endif

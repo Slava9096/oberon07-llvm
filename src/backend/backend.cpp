@@ -1,67 +1,75 @@
 #include "backend.h"
-
-// #include "/opt/llvm-project/llvm/include/llvm/Target/TargetMachine.h"
-// #include "/opt/llvm-project/llvm/include/llvm/Target/TargetOptions.h"
-// #include "/opt/llvm-project/llvm/include/llvm/Support/FileSystem.h"
-// #include "/opt/llvm-project/llvm/include/llvm/IR/LegacyPassManager.h"
-// #include "/opt/llvm-project/llvm/include/llvm/MC/TargetRegistry.h"
-// #include "/opt/llvm-project/llvm/include/llvm/Support/CodeGen.h"
-
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/TargetParser/Host.h"
+#include <optional>
 
-bool generateObjectFile(llvm::Module &module, const std::string &outputFilename, const std::string &targetTriple)
-{
+namespace backend {
+
+bool compile(const std::string& inputFile, const std::string& outputFile, bool emitAsm) {
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllTargetMCs();
-    llvm::InitializeAllAsmParsers();
     llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllAsmParsers();
 
+    std::string targetTriple = llvm::sys::getProcessTriple();
+
+    // Get the target
     std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
-
+    auto target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
     if (!target) {
-        llvm::errs() << "Can't find target: " << error << "\n";
+        llvm::errs() << error;
         return false;
     }
 
-    llvm::TargetOptions options;
-    std::unique_ptr<llvm::TargetMachine> targetMachine(
-        target->createTargetMachine(
-            targetTriple,
-            "generic",
-            "",
-            options,
-            llvm::Reloc::Model::PIC_
-        )
-    );
+    // Create target machine
+    auto CPU = "generic";
+    auto features = "";
+    llvm::TargetOptions opt;
+    std::optional<llvm::Reloc::Model> RM;
+    auto targetMachine = target->createTargetMachine(targetTriple, CPU, features, opt, RM);
 
-    module.setDataLayout(targetMachine->createDataLayout());
-    module.setTargetTriple(targetTriple);
+    // Read the input LLVM IR file
+    llvm::LLVMContext context;
+    llvm::SMDiagnostic diag;
+    std::unique_ptr<llvm::Module> module = llvm::parseIRFile(inputFile, diag, context);
+    if (!module) {
+        diag.print("backend", llvm::errs());
+        return false;
+    }
 
+    module->setTargetTriple(targetTriple);
+
+    // Create output file
     std::error_code EC;
-    llvm::raw_fd_ostream dest(outputFilename, EC, llvm::sys::fs::OF_None);
-
+    llvm::raw_fd_ostream dest(outputFile, EC, llvm::sys::fs::OF_None);
     if (EC) {
-        llvm::errs() << "Could not open destination file: " << EC.message() << "\n";
+        llvm::errs() << "Could not open file: " << EC.message();
         return false;
     }
 
-    llvm::legacy::PassManager codegenPM;
+    llvm::legacy::PassManager pass;
+    auto fileType = emitAsm ? llvm::CodeGenFileType::AssemblyFile : llvm::CodeGenFileType::ObjectFile;
 
-    if (targetMachine->addPassesToEmitFile(codegenPM, dest, nullptr, llvm::CodeGenFileType::ObjectFile)) {
-        llvm::errs() << "TargetMachine can't emit object file\n";
+    // Add passes to generate object file or assembly
+    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+        llvm::errs() << "TargetMachine can't emit a file of this type";
         return false;
     }
 
-    codegenPM.run(module);
+    pass.run(*module);
     dest.flush();
 
     return true;
+}
+
 }
