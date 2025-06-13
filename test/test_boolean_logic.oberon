@@ -6,4 +6,4 @@ BEGIN
         PRINT 0;
     END
     PRINT "\n";
-END.
+END TestBooleanLogic.

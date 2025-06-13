@@ -1,6 +1,5 @@
 MODULE TestNestedIfs;
-VAR a: INTEGER;
-VAR b: INTEGER;
+VAR a, b: INTEGER;
 BEGIN
     a := 10;
     b := 5;
@@ -14,4 +13,4 @@ BEGIN
         PRINT 0 - 1;
     END
     PRINT "\n";
-END.
+END TestNestedIfs.

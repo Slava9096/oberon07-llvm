@@ -4,4 +4,4 @@ BEGIN
     char := "a";
     PRINT char;
     PRINT "\n";
-END.
+END StringVal.

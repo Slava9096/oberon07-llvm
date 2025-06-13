@@ -1,6 +1,5 @@
 MODULE TestRelations;
-VAR a : INTEGER;
-VAR b : INTEGER;
+VAR a, b : INTEGER;
 BEGIN
     a := 7;
     b := 3;
@@ -10,4 +9,4 @@ BEGIN
         PRINT 0;
     END
     PRINT "\n";
-END.
+END TestRelations.

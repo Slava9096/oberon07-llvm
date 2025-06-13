@@ -1,6 +1,5 @@
 MODULE TestWhileLoop;
-VAR i : INTEGER;
-VAR sum : INTEGER;
+VAR i, sum : INTEGER;
 BEGIN
     i := 0;
     sum := 0;
@@ -10,4 +9,4 @@ BEGIN
     END
     PRINT sum;
     PRINT "\n";
-END.
+END TestWhileLoop.

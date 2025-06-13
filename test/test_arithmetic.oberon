@@ -6,4 +6,4 @@ BEGIN
     a := (2 + 3) * (4 - 5);
     PRINT a;
     PRINT "\n";
-END.
+END TestArithmetic.

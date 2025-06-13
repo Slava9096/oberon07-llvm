@@ -12,6 +12,7 @@
 #include "llvm/Support/Casting.h"
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base.h"
@@ -534,62 +535,66 @@ template<typename T>
 class DeclarationStatement : public Statement
 {
     public:
-        std::string name;
-        DeclarationStatement(const std::string& name)
+        std::vector<std::string> names;
+        DeclarationStatement(const std::vector<std::string>& names)
         {
-            this->name = name;
+            this->names = names;
         }
         ~DeclarationStatement()
         {
+            names.clear();
         }
         void Execute(Context* context) override
         {
-            context->values.emplace(std::make_pair(name, T{}));
+            for (int i = 0; i < names.size(); i++) {
+                context->values.emplace(std::make_pair(names[i], T{}));
+            }
         }
         llvm::Value* codegen(llvm::LLVMContext* context, llvm::IRBuilder<>& builder, SymbolTable* symbolTable) override {
+            // Get the appropriate LLVM type
             llvm::Type* ty = nullptr;
+            VarType varType;
 
             if constexpr (std::is_same_v<T, int>) {
-                ty = llvm::Type::getInt32Ty(*context);
+                ty = builder.getInt32Ty();
+                varType = VarType::Int;
             } else if constexpr (std::is_same_v<T, float>) {
-                ty = llvm::Type::getFloatTy(*context);
+                ty = builder.getFloatTy();
+                varType = VarType::Float;
             } else if constexpr (std::is_same_v<T, bool>) {
-                ty = llvm::Type::getInt1Ty(*context);
+                ty = builder.getInt1Ty();
+                varType = VarType::Bool;
             } else if constexpr (std::is_same_v<T, std::string>) {
-                ty = llvm::PointerType::get(llvm::Type::getInt8Ty(*context), 0);
+                ty = llvm::PointerType::get(builder.getInt8Ty(), 0);
+                varType = VarType::String;
             } else {
                 throw std::runtime_error("Unsupported variable type");
             }
 
-            if (symbolTable->lookup(name)) {
-                throw std::runtime_error("Variable '" + name + "' already declared");
-            }
             llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
-
             llvm::IRBuilder<> entryBuilder(&currentFunc->getEntryBlock(), currentFunc->getEntryBlock().begin());
-            llvm::AllocaInst* alloca = entryBuilder.CreateAlloca(ty, nullptr, name);
 
-            VarType varType;
-            if constexpr (std::is_same_v<T, int>) varType = VarType::Int;
-            else if constexpr (std::is_same_v<T, float>) varType = VarType::Float;
-            else if constexpr (std::is_same_v<T, bool>) varType = VarType::Bool;
-            else if constexpr (std::is_same_v<T, std::string>) varType = VarType::String;
+            // Declare each variable
+            for (int i = 0; i < names.size(); i++) {
+                if (symbolTable->lookup(names[i])) {
+                    throw std::runtime_error("Variable '" + names[i] + "' already declared");
+                }
 
-            symbolTable->addVariable(name, varType, alloca);
+                llvm::AllocaInst* alloca = entryBuilder.CreateAlloca(ty, nullptr, names[i]);
+                symbolTable->addVariable(names[i], varType, alloca);
 
-            if constexpr (std::is_same_v<T, int>) {
-                entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
-            } else if constexpr (std::is_same_v<T, float>) {
-                entryBuilder.CreateStore(llvm::ConstantFP::get(ty, 0.0), alloca);
-            } else if constexpr (std::is_same_v<T, bool>) {
-                entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
-            } else if constexpr (std::is_same_v<T, std::string>) {
-                llvm::Value* emptyStr = entryBuilder.CreateGlobalString("");
-                entryBuilder.CreateStore(emptyStr, alloca);
+                if constexpr (std::is_same_v<T, int>) {
+                    entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
+                } else if constexpr (std::is_same_v<T, float>) {
+                    entryBuilder.CreateStore(llvm::ConstantFP::get(ty, 0.0), alloca);
+                } else if constexpr (std::is_same_v<T, bool>) {
+                    entryBuilder.CreateStore(llvm::ConstantInt::get(ty, 0), alloca);
+                } else if constexpr (std::is_same_v<T, std::string>) {
+                    llvm::Value* emptyStr = entryBuilder.CreateGlobalString("");
+                    entryBuilder.CreateStore(emptyStr, alloca);
+                }
             }
-
-            return alloca;
-
+            return nullptr;
         }
 };
 

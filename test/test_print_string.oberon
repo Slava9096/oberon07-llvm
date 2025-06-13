@@ -2,4 +2,4 @@ MODULE TestPrintString;
 BEGIN
     PRINT "Hello, World!";
     PRINT "\n";
-END.
+END TestPrintString.

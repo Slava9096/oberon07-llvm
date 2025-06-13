@@ -1,10 +1,9 @@
 MODULE ScientificParse;
-VAR a: REAL;
-VAR b: REAL;
+VAR a, b: REAL;
 BEGIN
     a := 5.0E+1;
     b := 3.14E-1;
     PRINT a;
     PRINT b;
     PRINT "\n";
-END.
+END ScientificParse.

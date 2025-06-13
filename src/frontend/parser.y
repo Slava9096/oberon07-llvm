@@ -53,6 +53,8 @@
     RelationalExpression* relationalexpression;
     ArithmeticExpression* arithmeticexpression;
     LocationValue* lvalue;
+
+    std::vector<std::string>* ident_list;
 }
 
 %parse-param { Statement** result }
@@ -62,6 +64,7 @@
 %defines
 
 %type <module> module
+%type <block> declaration_block
 %type <block> declarations
 %type <block> statements
 %type <block> statementsI
@@ -83,6 +86,8 @@
 
 %type <lvalue> lvalue
 
+%type <ident_list> ident_list
+
 %type <statement> declaration
 %type <statement> decl_lvalue_int
 %type <statement> decl_lvalue_real
@@ -97,9 +102,16 @@ program
     }
 ;
 module
-    : TOK_MODULE TOK_IDENTIFIER TOK_SEMICOLON declarations TOK_BEGIN statements TOK_END TOK_DOT
+    : TOK_MODULE TOK_IDENTIFIER[id1] TOK_SEMICOLON declaration_block TOK_BEGIN statements TOK_END TOK_IDENTIFIER[id2] TOK_DOT
     {
-        $$ = new StatementModule($declarations, $statements);
+        if (*$id1 != *$id2) {
+            std::cerr << "Syntex error: Module name mismatch. Expected '" << *$id1
+            << "', found '" << *$id2 << "'." << std::endl;
+            YYERROR;
+        }
+        $$ = new StatementModule($declaration_block, $statements);
+        delete $id1;
+        delete $id2;
     }
 ;
 statements
@@ -318,42 +330,63 @@ arithmeticexpressionX
         $$ = $[a];
     }
 ;
-declarations
+declaration_block
     : %empty
     {
         std::vector<Statement*> declarations;
         $$ = new StatementBlock(declarations);
     }
+    | TOK_VAR declarations
+    {
+        $$ = $declarations;
+    }
+;
+declarations
+    : declaration
+    {
+        std::vector<Statement*> declarations;
+        declarations.push_back($declaration);
+        $$ = new StatementBlock(declarations);
+    }
     | declarations[d] declaration
     {
         $d->statements.push_back($declaration);
+        $$ = $d;
     }
 ;
 declaration
     : decl_lvalue_int TOK_SEMICOLON
+    {
+        $$ = $decl_lvalue_int;
+    }
     | decl_lvalue_real TOK_SEMICOLON
+    {
+        $$ = $decl_lvalue_real;
+    }
     | decl_lvalue_str TOK_SEMICOLON
-    // | decl_procedure TOK_SEMICOLON
+    {
+        $$ = $decl_lvalue_str;
+    }
 ;
 decl_lvalue_int
-    : TOK_VAR TOK_IDENTIFIER TOK_COLON TOK_INTEGER
+    : ident_list TOK_COLON TOK_INTEGER
     {
-        $$ = new DeclarationStatement<int>(*$TOK_IDENTIFIER);
-        delete $TOK_IDENTIFIER;
+        $$ = new DeclarationStatement<int>(*$ident_list);
+        delete $ident_list;
     }
 ;
 decl_lvalue_real
-    : TOK_VAR TOK_IDENTIFIER TOK_COLON TOK_REAL
+    : ident_list TOK_COLON TOK_REAL
     {
-        $$ = new DeclarationStatement<float>(*$TOK_IDENTIFIER);
-        delete $TOK_IDENTIFIER;
+        $$ = new DeclarationStatement<float>(*$ident_list);
+        delete $ident_list;
     }
 ;
 decl_lvalue_str
-    : TOK_VAR TOK_IDENTIFIER TOK_COLON TOK_CHAR
+    : ident_list TOK_COLON TOK_CHAR
     {
-        $$ = new DeclarationStatement<std::string>(*$TOK_IDENTIFIER);
-        delete $TOK_IDENTIFIER;
+        $$ = new DeclarationStatement<std::string>(*$ident_list);
+        delete $ident_list;
     }
 ;
 // decl_procedure
@@ -382,6 +415,20 @@ lvalue
         $$ = new LocationValueVariable(*$TOK_IDENTIFIER);
         delete $TOK_IDENTIFIER;
     }
+;
+ident_list
+    : TOK_IDENTIFIER
+    {
+        $$ = new std::vector<std::string>();
+        $$->push_back(*$TOK_IDENTIFIER);
+        delete $TOK_IDENTIFIER;
+    }
+    | ident_list[il] TOK_COMMA TOK_IDENTIFIER
+    {
+        $il->push_back(*$TOK_IDENTIFIER);
+        delete $TOK_IDENTIFIER;
+    }
+;
 %%
 
 void yy::parser::error(const std::string& msg)
